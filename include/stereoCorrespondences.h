@@ -1,0 +1,7 @@
+class StereoCorrespondences
+{
+public:
+
+private:
+
+};

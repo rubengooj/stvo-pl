@@ -1,0 +1,16 @@
+*/app/other*
+*build*
+CMakeLists.txt.user
+/app/other/bumblebeeSVO_comp.cpp
+/app/other/bumblebeeSVO.cpp
+/app/other/bumblebeeSVO.h
+/app/other/kittiHistograms.cpp
+/app/other/kittiSVO_eval.cpp
+/app/other/kittiSVO.h
+/app/other/kittiSVO_optims.cpp
+/app/other/kittiSVO_paper_bak.cpp
+/app/other/kittiSVO_paper.cpp
+/app/other/kittiSVO_paper_parallel.cpp
+/app/other/outliersSVO.cpp
+/app/other/simulatedSVO.cpp
+/lib/libstvo.so
