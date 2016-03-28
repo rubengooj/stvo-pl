@@ -70,6 +70,7 @@ public:
     Vector3d backProjection_unit(const double &u, const double &v, const double &disp, double &depth);
     Vector3d backProjection(const double &u, const double &v, const double &disp);
     Vector2d projection(Vector3d P);
+    Vector3d projectionNH(Vector3d P);
     Vector2d nonHomogeneous( Vector3d x);
 
     // Getters
@@ -80,6 +81,8 @@ public:
     inline const double       getB()    const { return b; };
     inline const Matrix<double,5,1> getD()    const { return d; };
     inline const double getFx()    const { return fx; };
+    inline const double getCx()    const { return cx; };
+    inline const double getCy()    const { return cy; };
 
 };
 

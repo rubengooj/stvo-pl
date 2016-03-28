@@ -73,6 +73,15 @@ Vector2d PinholeStereoCamera::projection( Vector3d P )
     return uv_unit;
 }
 
+Vector3d PinholeStereoCamera::projectionNH( Vector3d P )
+{
+    Vector3d uv_proj;
+    uv_proj(0) = cx * P(2) + fx * P(0);
+    uv_proj(1) = cy * P(2) + fy * P(1);
+    uv_proj(1) = P(2);
+    return uv_proj;
+}
+
 Vector2d PinholeStereoCamera::nonHomogeneous( Vector3d x)
 {
     Vector2d x_; x_ << x(0) / x(2), x(1) / x(2);
