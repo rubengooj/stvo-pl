@@ -78,7 +78,7 @@ Vector3d PinholeStereoCamera::projectionNH( Vector3d P )
     Vector3d uv_proj;
     uv_proj(0) = cx * P(2) + fx * P(0);
     uv_proj(1) = cy * P(2) + fy * P(1);
-    uv_proj(1) = P(2);
+    uv_proj(2) = P(2);
     return uv_proj;
 }
 

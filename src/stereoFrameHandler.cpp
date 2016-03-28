@@ -178,7 +178,7 @@ void StereoFrameHandler::optimizePose()
     // Gauss-Newton solver
     if( n_inliers > Config::minFeatures() )
     {
-        // select optimization type
+        // optimize
         DT_ = DT;
         gaussNewtonOptimization(DT_,DT_cov);
 
@@ -188,7 +188,6 @@ void StereoFrameHandler::optimizePose()
 
         // refine without outliers
         if( n_inliers > Config::minFeatures() )
-            // select optimization type
             gaussNewtonOptimization(DT,DT_cov);
         else
         {
@@ -237,31 +236,6 @@ void StereoFrameHandler::gaussNewtonOptimization(Matrix4d &DT, Matrix6d &DT_cov)
     DT_cov = H.inverse();
 }
 
-void StereoFrameHandler::levenbergMarquardtOptimization(Matrix4d &DT, Matrix6d &DT_cov)
-{
-    Matrix6d H;
-    Vector6d g, DT_inc;
-    double err, err_prev = 999999999.9;
-    for( int iters = 0; iters < Config::maxIters(); iters++)
-    {
-        // estimate hessian and gradient (select)
-        optimizeFunctions_nonweighted( DT, H, g, err );
-        // if the difference is very small stop
-        if( ( abs(err-err_prev) < Config::minErrorChange() ) || ( err < Config::minError()) )
-            break;
-        // update step
-        LDLT<Matrix6d> solver(H);
-        DT_inc = solver.solve(g);
-        DT  << DT * inverse_transformation( transformation_expmap(DT_inc) );
-        // if the parameter change is small stop (TODO: change with two parameters, one for R and another one for t)
-        if( DT_inc.norm() < numeric_limits<double>::epsilon() )
-            break;
-        // update previous values
-        err_prev = err;
-    }
-    DT_cov = H.inverse();
-}
-
 void StereoFrameHandler::removeOutliers(Matrix4d DT)
 {
     VectorXf residuals( n_inliers );
@@ -279,7 +253,16 @@ void StereoFrameHandler::removeOutliers(Matrix4d DT)
     // line segment features
     for( list<LineFeature*>::iterator it = matched_ls.begin(); it!=matched_ls.end(); it++, iter++)
     {
-
+        // projection error
+        Vector3d sP_ = DT.block(0,0,3,3) * (*it)->sP + DT.col(3).head(3);
+        Vector3d eP_ = DT.block(0,0,3,3) * (*it)->eP + DT.col(3).head(3);
+        Vector2d spl_proj = cam->projection( sP_ );
+        Vector2d epl_proj = cam->projection( eP_ );
+        Vector3d l_obs    = (*it)->le_obs;
+        Vector2d err_li;
+        err_li(0) = l_obs(0) * spl_proj(0) + l_obs(1) * spl_proj(1) + l_obs(2);
+        err_li(1) = l_obs(0) * epl_proj(0) + l_obs(1) * epl_proj(1) + l_obs(2);
+        residuals(iter) = err_li.norm();
     }
 
     // estimate mad standard deviation
@@ -429,7 +412,7 @@ void StereoFrameHandler::optimizeFunctions_nonweighted(Matrix4d DT, Matrix6d &H,
 
 }
 
-void StereoFrameHandler::optimizeFunctions_uncweighted(Matrix4d DT, Matrix6d &H, Vector6d &g, double &err )
+/*void StereoFrameHandler::optimizeFunctions_uncweighted(Matrix4d DT, Matrix6d &H, Vector6d &g, double &err )
 {
 
     // define hessian, gradient, and residuals
@@ -455,7 +438,6 @@ void StereoFrameHandler::optimizeFunctions_uncweighted(Matrix4d DT, Matrix6d &H,
     {
         if( (*it)->inlier )
         {
-            n_inliers_++;
             Vector3d P_ = R * (*it)->P + DT.col(3).head(3);
             Vector2d pl_proj = cam->projection( P_ );
             // projection error
@@ -464,6 +446,7 @@ void StereoFrameHandler::optimizeFunctions_uncweighted(Matrix4d DT, Matrix6d &H,
             // check inverse of err_i_norm
             if( err_i_norm > Config::homogTh() )
             {
+                n_inliers_++;
                 double gx   = P_(0);
                 double gy   = P_(1);
                 double gz   = P_(2);
@@ -495,28 +478,27 @@ void StereoFrameHandler::optimizeFunctions_uncweighted(Matrix4d DT, Matrix6d &H,
                 covP_an(1,0) = covP_an(0,1);
                 covP_an(2,0) = covP_an(0,2);
                 covP_an(2,1) = covP_an(1,2);
-                covP_an << covP_an / (disp2*disp2);     // Covariance of the 3D point P up to b2*sigma2
+                covP_an << covP_an / (disp2*disp2);
                 MatrixXd Jhg(2,3), covp(2,2), covp_inv(2,2);
                 Jhg  << gz, 0.f, -gx, 0.f, gz, -gy;
                 Jhg  << Jhg * R;
                 covp << Jhg * covP_an * Jhg.transpose();
-                covp << covp / (gz2*gz2);               // Covariance of the 3D projection \hat{p} up to f2*b2*sigma2
+                covp << covp / (gz2*gz2);
                 covp = bsigma * covp;
                 covp(0,0) = covp(0,0) + sigma2;
                 covp(1,1) = covp(1,1) + sigma2;
                 covp_inv = covp.inverse();
                 // update the weights matrix
                 double wunc = err_i.transpose() * covp_inv * err_i;
-                wunc = wunc / (dx*dx+dy*dy);
-                double err_i_ = err_i_norm * err_i_norm * wunc;
+                wunc = wunc / (dx*dx+dy*dy);                
                 // if employing robust cost function
                 double w = 1.0;
                 if( Config::robustCost() )
-                    w = 1.0 / ( 1.0 + err_i_ );
+                    w = 1.0 / ( 1.0 + err_i_norm );
                 // update hessian, gradient, and error
-                H   += J_aux * J_aux.transpose() * w;
-                g   += J_aux * err_i_ * w;
-                err += err_i_ * err_i_ * w;
+                H   += J_aux * J_aux.transpose() * wunc * w / err_i_norm ;
+                g   += J_aux * w;
+                err += err_i_norm * err_i_norm * wunc * w ;
             }
             else
                 (*it)->inlier = false;
@@ -529,7 +511,6 @@ void StereoFrameHandler::optimizeFunctions_uncweighted(Matrix4d DT, Matrix6d &H,
 
         if( (*it)->inlier )
         {
-            n_inliers_++;
             Vector3d sP_ = DT.block(0,0,3,3) * (*it)->sP + DT.col(3).head(3);
             Vector2d spl_proj = cam->projection( sP_ );
             Vector3d eP_ = DT.block(0,0,3,3) * (*it)->eP + DT.col(3).head(3);
@@ -589,6 +570,7 @@ void StereoFrameHandler::optimizeFunctions_uncweighted(Matrix4d DT, Matrix6d &H,
                 cov_p = cov_aux(0);
                 cov_p = 1.f/cov_p;
                 cov_p = p4 * cov_p * 0.5f * bsigma_inv;
+
                 // -- end point
                 gx   = eP_(0);
                 gy   = eP_(1);
@@ -629,22 +611,29 @@ void StereoFrameHandler::optimizeFunctions_uncweighted(Matrix4d DT, Matrix6d &H,
                 cov_q = cov_aux(0);
                 cov_q = 1.f / cov_q;
                 cov_q = p4 * cov_q * 0.5f * bsigma_inv;
-                if( std::isinf(cov_p) || std::isnan(cov_p) )  cov_p = 0.f;
-                if( std::isinf(cov_q) || std::isnan(cov_q) )  cov_q = 0.f;
-                // update the weights matrix
-                double wunc = err_i(0) * err_i(0) * cov_p + err_i(1) * err_i(1) * cov_q;
-                wunc = wunc / ( err_i(0)*err_i(0) + err_i(1)*err_i(1) );
-                double err_i_ = err_i_norm * err_i_norm * wunc;
-                // jacobian
-                J_aux = ( Js_aux * ds + Je_aux * de ) / std::max(0.0000001,err_i_norm);
-                // if employing robust cost function
-                double w = 1.0;
-                if( Config::robustCost() )
-                    w = 1.0 / ( 1.0 + err_i_ );
-                // update hessian, gradient, and error
-                H   += J_aux * J_aux.transpose() * w;
-                g   += J_aux * err_i_ * w;
-                err += err_i_ * err_i_ * w;
+
+                cout << endl << cov_p << " " << cov_q ;
+                //cout << endl << p4 << " " << bsigma_inv << "\t" << epl_proj_.transpose() << "\t" << spl_proj_.transpose() ;
+
+                if( !std::isinf(cov_p) && !std::isnan(cov_p) && !std::isinf(cov_q) && !std::isnan(cov_q) )
+                {
+                    n_inliers_++;
+                    // update the weights matrix
+                    double wunc = err_i(0) * err_i(0) * cov_p + err_i(1) * err_i(1) * cov_q;
+                    wunc = wunc / ( err_i(0)*err_i(0) + err_i(1)*err_i(1) );
+                    // jacobian
+                    J_aux = ( Js_aux * ds + Je_aux * de ) / std::max(0.0000001,err_i_norm);
+                    // if employing robust cost function
+                    double w = 1.0;
+                    if( Config::robustCost() )
+                        w = 1.0 / ( 1.0 + err_i_norm );
+                    // update hessian, gradient, and error
+                    H   += J_aux * J_aux.transpose() * wunc * w / err_i_norm ;
+                    g   += J_aux * w;
+                    err += err_i_norm * err_i_norm * wunc * w ;
+                }
+                else
+                    (*it)->inlier = false;
             }
             else
                 (*it)->inlier = false;
@@ -652,7 +641,10 @@ void StereoFrameHandler::optimizeFunctions_uncweighted(Matrix4d DT, Matrix6d &H,
 
     }
 
+    //cout << endl;
+
     // normalize error
-    err /= n_inliers;
+    err /= n_inliers_;
 
 }
+*/

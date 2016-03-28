@@ -85,7 +85,7 @@ int main(int argc, char **argv)
     boost::filesystem::path img_dir_path_r(img_dir_r.c_str());
     if (!boost::filesystem::exists(img_dir_path_r))
     {
-        cout << endl << "Left image directory does not exist: \t" << img_dir_r << endl;
+        cout << endl << "Right image directory does not exist: \t" << img_dir_r << endl;
         return -1;
     }
 

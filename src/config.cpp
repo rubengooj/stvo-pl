@@ -6,7 +6,7 @@ Config::Config()
 {
     // flags
     has_points      = true;
-    has_lines       = false;
+    has_lines       = true;
     lr_in_parallel  = true;
     robust_cost     = true;
     motion_prior    = false;
@@ -44,12 +44,12 @@ Config::Config()
     // optimization
     homog_th         = 0.0000001;
     min_features     = 20;
-    max_iters        = 3;
+    max_iters        = 5;
     max_iters_ref    = 10;
     min_error        = 0.0000001;
     min_error_change = 0.0000001;
     inlier_k         = 1.5;
-    sigma_px         = 0.1;
+    sigma_px         = 1.0;
 
 }
 
