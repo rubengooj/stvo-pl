@@ -6,7 +6,7 @@ Config::Config()
 {
     // flags
     has_points      = true;
-    has_lines       = true;
+    has_lines       = false;
     lr_in_parallel  = true;
     robust_cost     = true;
     motion_prior    = false;
@@ -15,8 +15,8 @@ Config::Config()
     orb_nfeatures    = 2000;
     orb_scale_factor = 1.0;
     orb_nlevels      = 1;
-    max_dist_epip    = 2.0;
-    min_disp         = 5.0;
+    max_dist_epip    = 1.0;
+    min_disp         = 10.0;
     desc_th_p        = 1.5;
 
     // lines detection and matching
@@ -32,7 +32,7 @@ Config::Config()
     min_horiz_angle  = 10.0;
     max_angle_diff   = 10.0;
     line_horiz_th    = 0.1;
-    min_line_length  = 0.05;
+    min_line_length  = 0.03;
     desc_th_l        = 1.5;
 
     // transform to radians
@@ -43,12 +43,13 @@ Config::Config()
 
     // optimization
     homog_th         = 0.0000001;
-    min_features     = 8;
-    max_iters        = 10;
+    min_features     = 20;
+    max_iters        = 3;
     max_iters_ref    = 10;
     min_error        = 0.0000001;
     min_error_change = 0.0000001;
-    inlier_k         = 2.0;
+    inlier_k         = 1.5;
+    sigma_px         = 0.1;
 
 }
 

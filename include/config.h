@@ -52,6 +52,7 @@ public:
     static double&  minError()          { return getInstance().min_error; }
     static double&  minErrorChange()    { return getInstance().min_error_change; }
     static double&  inlierK()           { return getInstance().inlier_k; }
+    static double&  sigmaPx()           { return getInstance().sigma_px; }
 
 private:
 
@@ -97,6 +98,7 @@ private:
     double min_error;
     double min_error_change;
     double inlier_k;
+    double sigma_px;
 
 };
 
