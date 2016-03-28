@@ -161,20 +161,10 @@ void StereoFrameHandler::updateFrame()
 
 void StereoFrameHandler::optimizePose()
 {
-    // TODO: remove...
-    if(true)
-        optimizeGN();
-    else
-        optimizeLM();
-}
-
-void StereoFrameHandler::optimizeGN()
-{
 
     // definitions
-    Matrix6d H, DT_cov;
-    Vector6d g, DT_inc;
-    Matrix4d DT;
+    Matrix6d DT_cov;
+    Matrix4d DT, DT_;
     double err, err_prev = 999999999.9;
 
     #pragma message("TODO: implement some logic to select the initial pose")
@@ -188,51 +178,18 @@ void StereoFrameHandler::optimizeGN()
     // Gauss-Newton solver
     if( n_inliers > Config::minFeatures() )
     {
-        for( int iters = 0; iters < Config::maxIters(); iters++)
-        {
-            // estimate hessian and gradient (select)
-            optimizeFunctions_nonweighted( DT, H, g, err );
-            // if the difference is very small stop
-            if( ( abs(err-err_prev) < Config::minErrorChange() ) || ( err < Config::minError()) )
-                break;
-            // update step
-            LDLT<Matrix6d> solver(H);
-            DT_inc = solver.solve(g);
-            DT  << DT * inverse_transformation( transformation_expmap(DT_inc) );
-            // if the parameter change is small stop (TODO: change with two parameters, one for R and another one for t)
-            if( DT_inc.norm() < numeric_limits<double>::epsilon() )
-                break;
-            // update previous values
-            err_prev = err;
-        }
-        DT_cov = H.inverse();
+        // select optimization type
+        DT_ = DT;
+        gaussNewtonOptimization(DT_,DT_cov);
 
         // remove outliers (implement some logic based on the covariance's eigenvalues)
-        if( is_finite(DT) )
-            removeOutliers( DT );
+        if( is_finite(DT_) )
+            removeOutliers(DT_);
 
         // refine without outliers
         if( n_inliers > Config::minFeatures() )
-        {
-            for( int iters = 0; iters < Config::maxItersRef(); iters++)
-            {
-                // estimate hessian and gradient (select)
-                optimizeFunctions_nonweighted( DT, H, g, err );
-                // if the difference is very small stop
-                if( ( abs(err-err_prev) < Config::minErrorChange() ) || ( err < Config::minError()) )
-                    break;
-                // update step
-                LDLT<Matrix6d> solver(H);
-                DT_inc = solver.solve(g);
-                DT  << DT * inverse_transformation( transformation_expmap(DT_inc) );
-                // if the parameter change is small stop (TODO: change with two parameters, one for R and another one for t)
-                if( DT_inc.norm() < numeric_limits<double>::epsilon() )
-                    break;
-                // update previous values
-                err_prev = err;
-            }
-            DT_cov = H.inverse();
-        }
+            // select optimization type
+            gaussNewtonOptimization(DT,DT_cov);
         else
         {
             DT     = Matrix4d::Identity();
@@ -255,9 +212,54 @@ void StereoFrameHandler::optimizeGN()
 
 }
 
-void StereoFrameHandler::optimizeLM()
+void StereoFrameHandler::gaussNewtonOptimization(Matrix4d &DT, Matrix6d &DT_cov)
 {
+    Matrix6d H;
+    Vector6d g, DT_inc;
+    double err, err_prev = 999999999.9;
+    for( int iters = 0; iters < Config::maxIters(); iters++)
+    {
+        // estimate hessian and gradient (select)
+        optimizeFunctions_nonweighted( DT, H, g, err );
+        // if the difference is very small stop
+        if( ( abs(err-err_prev) < Config::minErrorChange() ) || ( err < Config::minError()) )
+            break;
+        // update step
+        LDLT<Matrix6d> solver(H);
+        DT_inc = solver.solve(g);
+        DT  << DT * inverse_transformation( transformation_expmap(DT_inc) );
+        // if the parameter change is small stop (TODO: change with two parameters, one for R and another one for t)
+        if( DT_inc.norm() < numeric_limits<double>::epsilon() )
+            break;
+        // update previous values
+        err_prev = err;
+    }
+    DT_cov = H.inverse();
+}
 
+void StereoFrameHandler::levenbergMarquardtOptimization(Matrix4d &DT, Matrix6d &DT_cov)
+{
+    Matrix6d H;
+    Vector6d g, DT_inc;
+    double err, err_prev = 999999999.9;
+    for( int iters = 0; iters < Config::maxIters(); iters++)
+    {
+        // estimate hessian and gradient (select)
+        optimizeFunctions_nonweighted( DT, H, g, err );
+        // if the difference is very small stop
+        if( ( abs(err-err_prev) < Config::minErrorChange() ) || ( err < Config::minError()) )
+            break;
+        // update step
+        LDLT<Matrix6d> solver(H);
+        DT_inc = solver.solve(g);
+        DT  << DT * inverse_transformation( transformation_expmap(DT_inc) );
+        // if the parameter change is small stop (TODO: change with two parameters, one for R and another one for t)
+        if( DT_inc.norm() < numeric_limits<double>::epsilon() )
+            break;
+        // update previous values
+        err_prev = err;
+    }
+    DT_cov = H.inverse();
 }
 
 void StereoFrameHandler::removeOutliers(Matrix4d DT)
@@ -415,6 +417,234 @@ void StereoFrameHandler::optimizeFunctions_nonweighted(Matrix4d DT, Matrix6d &H,
                 H   += J_aux * J_aux.transpose() * w;
                 g   += J_aux * err_i_norm * w;
                 err += err_i_norm * err_i_norm * w;
+            }
+            else
+                (*it)->inlier = false;
+        }
+
+    }
+
+    // normalize error
+    err /= n_inliers;
+
+}
+
+void StereoFrameHandler::optimizeFunctions_uncweighted(Matrix4d DT, Matrix6d &H, Vector6d &g, double &err )
+{
+
+    // define hessian, gradient, and residuals
+    H   = Matrix6d::Zero();
+    g   = Vector6d::Zero();
+    err = 0.0;
+
+    // assign cam parameters
+    double f     = cam->getFx();   // we assume fx == fy
+    double cx    = cam->getCx();
+    double cy    = cam->getCy();
+    double sigma = Config::sigmaPx();
+
+    // estimate sigma parameters
+    double bsigma     = f * cam->getB() * sigma;
+    double bsigma_inv = 1.f / bsigma;
+    double sigma2     = sigma * sigma;
+
+    // point features
+    Matrix3d R  = DT.block(0,0,3,3);
+    int n_inliers_ = 0;
+    for( list<PointFeature*>::iterator it = matched_pt.begin(); it!=matched_pt.end(); it++)
+    {
+        if( (*it)->inlier )
+        {
+            n_inliers_++;
+            Vector3d P_ = R * (*it)->P + DT.col(3).head(3);
+            Vector2d pl_proj = cam->projection( P_ );
+            // projection error
+            Vector2d err_i    = pl_proj - (*it)->pl_obs;
+            double err_i_norm = err_i.norm();
+            // check inverse of err_i_norm
+            if( err_i_norm > Config::homogTh() )
+            {
+                double gx   = P_(0);
+                double gy   = P_(1);
+                double gz   = P_(2);
+                double gz2  = gz*gz;
+                double fgz2 = f / std::max(0.0000001,gz2);
+                double dx   = err_i(0);
+                double dy   = err_i(1);
+                // jacobian
+                Vector6d J_aux;
+                J_aux << + fgz2 * dx * gz,
+                         + fgz2 * dy * gz,
+                         - fgz2 * ( gx*dx + gy*dy ),
+                         - fgz2 * ( gx*gy*dx + gy*gy*dy + gz*gz*dy ),
+                         + fgz2 * ( gx*gx*dx + gz*gz*dx + gx*gy*dy ),
+                         + fgz2 * ( gx*gz*dy - gy*gz*dx );
+                J_aux = J_aux / std::max(0.0000001,err_i_norm);
+                // uncertainty
+                double px_hat = (*it)->pl(0) - cx;
+                double py_hat = (*it)->pl(1) - cy;
+                double disp   = (*it)->disp;
+                double disp2  = disp * disp;
+                Matrix3d covP_an;
+                covP_an(0,0) = disp2+2.f*px_hat*px_hat;
+                covP_an(0,1) = 2.f*px_hat*py_hat;
+                covP_an(0,2) = 2.f*f*px_hat;
+                covP_an(1,1) = disp2+2.f*py_hat*py_hat;
+                covP_an(1,2) = 2.f*f*py_hat;
+                covP_an(2,2) = 2.f*f*f;
+                covP_an(1,0) = covP_an(0,1);
+                covP_an(2,0) = covP_an(0,2);
+                covP_an(2,1) = covP_an(1,2);
+                covP_an << covP_an / (disp2*disp2);     // Covariance of the 3D point P up to b2*sigma2
+                MatrixXd Jhg(2,3), covp(2,2), covp_inv(2,2);
+                Jhg  << gz, 0.f, -gx, 0.f, gz, -gy;
+                Jhg  << Jhg * R;
+                covp << Jhg * covP_an * Jhg.transpose();
+                covp << covp / (gz2*gz2);               // Covariance of the 3D projection \hat{p} up to f2*b2*sigma2
+                covp = bsigma * covp;
+                covp(0,0) = covp(0,0) + sigma2;
+                covp(1,1) = covp(1,1) + sigma2;
+                covp_inv = covp.inverse();
+                // update the weights matrix
+                double wunc = err_i.transpose() * covp_inv * err_i;
+                wunc = wunc / (dx*dx+dy*dy);
+                double err_i_ = err_i_norm * err_i_norm * wunc;
+                // if employing robust cost function
+                double w = 1.0;
+                if( Config::robustCost() )
+                    w = 1.0 / ( 1.0 + err_i_ );
+                // update hessian, gradient, and error
+                H   += J_aux * J_aux.transpose() * w;
+                g   += J_aux * err_i_ * w;
+                err += err_i_ * err_i_ * w;
+            }
+            else
+                (*it)->inlier = false;
+        }
+    }
+
+    // line segment features
+    for( list<LineFeature*>::iterator it = matched_ls.begin(); it!=matched_ls.end(); it++)
+    {
+
+        if( (*it)->inlier )
+        {
+            n_inliers_++;
+            Vector3d sP_ = DT.block(0,0,3,3) * (*it)->sP + DT.col(3).head(3);
+            Vector2d spl_proj = cam->projection( sP_ );
+            Vector3d eP_ = DT.block(0,0,3,3) * (*it)->eP + DT.col(3).head(3);
+            Vector2d epl_proj = cam->projection( eP_ );
+            Vector3d l_obs = (*it)->le_obs;
+            // projection error
+            Vector2d err_i;
+            err_i(0) = l_obs(0) * spl_proj(0) + l_obs(1) * spl_proj(1) + l_obs(2);
+            err_i(1) = l_obs(0) * epl_proj(0) + l_obs(1) * epl_proj(1) + l_obs(2);
+            double err_i_norm = err_i.norm();
+            // check inverse of err_i_norm
+            if( err_i_norm > Config::homogTh() )
+            {
+                // -- start point
+                double gx   = sP_(0);
+                double gy   = sP_(1);
+                double gz   = sP_(2);
+                double gz2  = gz*gz;
+                double fgz2 = f / std::max(0.0000001,gz2);
+                double ds   = err_i(0);
+                double de   = err_i(1);
+                double lx   = l_obs(0);
+                double ly   = l_obs(1);
+                Vector6d Js_aux;
+                Js_aux << + fgz2 * lx * gz,
+                          + fgz2 * ly * gz,
+                          - fgz2 * ( gx*lx + gy*ly ),
+                          - fgz2 * ( gx*gy*lx + gy*gy*ly + gz*gz*ly ),
+                          + fgz2 * ( gx*gx*lx + gz*gz*lx + gx*gy*ly ),
+                          + fgz2 * ( gx*gz*ly - gy*gz*lx );
+                // uncertainty
+                double px_hat = (*it)->spl(0) - cx;
+                double py_hat = (*it)->spl(1) - cy;
+                double disp   = (*it)->sdisp;
+                double disp2  = disp * disp;
+                Matrix3d covP_an;
+                covP_an(0,0) = disp2+2.f*px_hat*px_hat;
+                covP_an(0,1) = 2.f*px_hat*py_hat;
+                covP_an(0,2) = 2.f*f*px_hat;
+                covP_an(1,1) = disp2+2.f*py_hat*py_hat;
+                covP_an(1,2) = 2.f*f*py_hat;
+                covP_an(2,2) = 2.f*f*f;
+                covP_an(1,0) = covP_an(0,1);
+                covP_an(2,0) = covP_an(0,2);
+                covP_an(2,1) = covP_an(1,2);
+                covP_an << covP_an / (disp2*disp2);
+                Vector3d spl_proj_ = cam->projectionNH( sP_ );
+                MatrixXd J_ep(1,3);
+                double lxpz = lx * spl_proj_(2);
+                double lypz = ly * spl_proj_(2);
+                J_ep << lxpz*f, lypz*f, lxpz*cx+lypz*cy-lx*spl_proj_(0)-ly*spl_proj_(1);
+                J_ep << J_ep * R;
+                double p4 = pow(spl_proj_(2),4);
+                double cov_p;
+                VectorXd cov_aux(1);
+                cov_aux << J_ep * covP_an * J_ep.transpose();
+                cov_p = cov_aux(0);
+                cov_p = 1.f/cov_p;
+                cov_p = p4 * cov_p * 0.5f * bsigma_inv;
+                // -- end point
+                gx   = eP_(0);
+                gy   = eP_(1);
+                gz   = eP_(2);
+                gz2  = gz*gz;
+                fgz2 = cam->getFx() / std::max(0.0000001,gz2);
+                Vector6d Je_aux, J_aux;
+                Je_aux << + fgz2 * lx * gz,
+                          + fgz2 * ly * gz,
+                          - fgz2 * ( gx*lx + gy*ly ),
+                          - fgz2 * ( gx*gy*lx + gy*gy*ly + gz*gz*ly ),
+                          + fgz2 * ( gx*gx*lx + gz*gz*lx + gx*gy*ly ),
+                          + fgz2 * ( gx*gz*ly - gy*gz*lx );
+                // uncertainty
+                px_hat = (*it)->epl(0) - cx;
+                py_hat = (*it)->epl(1) - cy;
+                disp   = (*it)->edisp;
+                disp2  = disp * disp;
+                Matrix3d covQ_an;
+                covQ_an(0,0) = disp2+2.f*px_hat*px_hat;
+                covQ_an(0,1) = 2.f*px_hat*py_hat;
+                covQ_an(0,2) = 2.f*f*px_hat;
+                covQ_an(1,1) = disp2+2.f*py_hat*py_hat;
+                covQ_an(1,2) = 2.f*f*py_hat;
+                covQ_an(2,2) = 2.f*f*f;
+                covQ_an(1,0) = covQ_an(0,1);
+                covQ_an(2,0) = covQ_an(0,2);
+                covQ_an(2,1) = covQ_an(1,2);
+                covQ_an << covQ_an / (disp2*disp2);
+                Vector3d epl_proj_ = cam->projectionNH( eP_ );
+                lxpz = lx * epl_proj_(2);
+                lypz = ly * epl_proj_(2);
+                J_ep << lxpz*f, lypz*f, lxpz*cx+lypz*cy-lx*epl_proj_(0)-ly*epl_proj_(1);
+                J_ep << J_ep * R;
+                p4 = pow(epl_proj_(2),4);
+                double cov_q;
+                cov_aux << J_ep * covQ_an * J_ep.transpose();
+                cov_q = cov_aux(0);
+                cov_q = 1.f / cov_q;
+                cov_q = p4 * cov_q * 0.5f * bsigma_inv;
+                if( std::isinf(cov_p) || std::isnan(cov_p) )  cov_p = 0.f;
+                if( std::isinf(cov_q) || std::isnan(cov_q) )  cov_q = 0.f;
+                // update the weights matrix
+                double wunc = err_i(0) * err_i(0) * cov_p + err_i(1) * err_i(1) * cov_q;
+                wunc = wunc / ( err_i(0)*err_i(0) + err_i(1)*err_i(1) );
+                double err_i_ = err_i_norm * err_i_norm * wunc;
+                // jacobian
+                J_aux = ( Js_aux * ds + Je_aux * de ) / std::max(0.0000001,err_i_norm);
+                // if employing robust cost function
+                double w = 1.0;
+                if( Config::robustCost() )
+                    w = 1.0 / ( 1.0 + err_i_ );
+                // update hessian, gradient, and error
+                H   += J_aux * J_aux.transpose() * w;
+                g   += J_aux * err_i_ * w;
+                err += err_i_ * err_i_ * w;
             }
             else
                 (*it)->inlier = false;

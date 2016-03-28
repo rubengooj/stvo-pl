@@ -76,12 +76,14 @@ public:
 
 private:
 
-    void optimizeGN();
-    void optimizeLM();
+    void gaussNewtonOptimization(Matrix4d &DT, Matrix6d &DT_cov);
+    void levenbergMarquardtOptimization(Matrix4d &DT, Matrix6d &DT_cov);
+
     void optimizeFunctions(Matrix4d DT, Matrix6d &H, Vector6d &g, double &err);
 
     void removeOutliers( Matrix4d DT );
     void optimizeFunctions_nonweighted(Matrix4d DT, Matrix6d &H, Vector6d &g, double &err);
+    void optimizeFunctions_uncweighted(Matrix4d DT, Matrix6d &H, Vector6d &g, double &err);
 
 };
 
