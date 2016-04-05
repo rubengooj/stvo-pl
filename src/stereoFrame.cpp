@@ -38,7 +38,6 @@ struct sort_descriptor_by_trainIdx
     }
 };
 
-
 StereoFrame::StereoFrame(){}
 
 StereoFrame::StereoFrame(const Mat &img_l_, const Mat &img_r_ , const int idx_, PinholeStereoCamera *cam_) :
@@ -83,20 +82,24 @@ void StereoFrame::extractStereoFeatures()
         vector<vector<DMatch>> pmatches_lr, pmatches_rl, pmatches_lr_;
         Mat pdesc_l_;
         stereo_pt.clear();
-        #pragma message("TODO: two different functions if we employ or not best LR and RL match")
         // LR and RL matches
-        if( Config::lrInParallel() )
+        if( Config::bestLRMatches() )
         {
-            auto match_l = async( launch::async, &StereoFrame::matchPointFeatures, this, bfm, pdesc_l, pdesc_r, ref(pmatches_lr) );
-            auto match_r = async( launch::async, &StereoFrame::matchPointFeatures, this, bfm, pdesc_r, pdesc_l, ref(pmatches_rl) );
-            match_l.wait();
-            match_r.wait();
+            if( Config::lrInParallel() )
+            {
+                auto match_l = async( launch::async, &StereoFrame::matchPointFeatures, this, bfm, pdesc_l, pdesc_r, ref(pmatches_lr) );
+                auto match_r = async( launch::async, &StereoFrame::matchPointFeatures, this, bfm, pdesc_r, pdesc_l, ref(pmatches_rl) );
+                match_l.wait();
+                match_r.wait();
+            }
+            else
+            {
+                bfm->knnMatch( pdesc_l, pdesc_r, pmatches_lr, 2);
+                bfm->knnMatch( pdesc_r, pdesc_l, pmatches_rl, 2);
+            }
         }
         else
-        {
             bfm->knnMatch( pdesc_l, pdesc_r, pmatches_lr, 2);
-            bfm->knnMatch( pdesc_r, pdesc_l, pmatches_rl, 2);
-        }
 
         s2 = 1000.0 * clk.Tac(); clk.Tic();
 
@@ -113,18 +116,25 @@ void StereoFrame::extractStereoFeatures()
 
         // resort according to the queryIdx
         sort( pmatches_lr.begin(), pmatches_lr.end(), sort_descriptor_by_queryIdx() );
-        sort( pmatches_rl.begin(), pmatches_rl.end(), sort_descriptor_by_queryIdx() );
+        if(Config::bestLRMatches())
+            sort( pmatches_rl.begin(), pmatches_rl.end(), sort_descriptor_by_queryIdx() );
 
         s4 = 1000.0 * clk.Tac(); clk.Tic();
 
         // bucle around pmatches
         for( int i = 0; i < pmatches_lr.size(); i++ )
         {
-            // check if they are mutual best matches
-            int lr_qdx = pmatches_lr[i][0].queryIdx;
-            int lr_tdx = pmatches_lr[i][0].trainIdx;
-            //int rl_qdx = pmatches_rl[lr_tdx][0].queryIdx;
-            int rl_tdx = pmatches_rl[lr_tdx][0].trainIdx;
+            int lr_qdx, lr_tdx, rl_tdx;
+            lr_qdx = pmatches_lr[i][0].queryIdx;
+            lr_tdx = pmatches_lr[i][0].trainIdx;
+            if( Config::bestLRMatches() )
+            {
+                // check if they are mutual best matches
+                //int rl_qdx = pmatches_rl[lr_tdx][0].queryIdx;
+                rl_tdx = pmatches_rl[lr_tdx][0].trainIdx;
+            }
+            else
+                rl_tdx = lr_qdx;
             // check if they are mutual best matches and the minimum distance
             double dist_nn = pmatches_lr[i][0].distance;
             double dist_12 = pmatches_lr[i][1].distance - pmatches_lr[i][0].distance;
@@ -145,6 +155,8 @@ void StereoFrame::extractStereoFeatures()
                     }
                 }
             }
+
+
         }
         pdesc_l_.copyTo(pdesc_l);
 
@@ -161,20 +173,24 @@ void StereoFrame::extractStereoFeatures()
         Ptr<BinaryDescriptorMatcher> bdm = BinaryDescriptorMatcher::createBinaryDescriptorMatcher();
         vector<vector<DMatch>> lmatches_lr, lmatches_rl;
         Mat ldesc_l_;
-        #pragma message("TODO: two different functions if we employ or not best LR and RL match")
         // LR and RL matches
-        if( Config::lrInParallel() )
+        if( Config::bestLRMatches() )
         {
-            auto match_l = async( launch::async, &StereoFrame::matchLineFeatures, this, bdm, ldesc_l, ldesc_r, ref(lmatches_lr) );
-            auto match_r = async( launch::async, &StereoFrame::matchLineFeatures, this, bdm, ldesc_r, ldesc_l, ref(lmatches_rl) );
-            match_l.wait();
-            match_r.wait();
+            if( Config::lrInParallel() )
+            {
+                auto match_l = async( launch::async, &StereoFrame::matchLineFeatures, this, bdm, ldesc_l, ldesc_r, ref(lmatches_lr) );
+                auto match_r = async( launch::async, &StereoFrame::matchLineFeatures, this, bdm, ldesc_r, ldesc_l, ref(lmatches_rl) );
+                match_l.wait();
+                match_r.wait();
+            }
+            else
+            {
+                bdm->knnMatch( ldesc_l,ldesc_r, lmatches_lr, 2);
+                bdm->knnMatch( ldesc_r,ldesc_l, lmatches_rl, 2);
+            }
         }
         else
-        {
             bdm->knnMatch( ldesc_l,ldesc_r, lmatches_lr, 2);
-            bdm->knnMatch( ldesc_r,ldesc_l, lmatches_rl, 2);
-        }
 
         s2 += 1000.0 * clk.Tac(); clk.Tic();
 
@@ -192,17 +208,26 @@ void StereoFrame::extractStereoFeatures()
 
         // bucle around pmatches
         sort( lmatches_lr.begin(), lmatches_lr.end(), sort_descriptor_by_queryIdx() );
-        sort( lmatches_rl.begin(), lmatches_rl.end(), sort_descriptor_by_queryIdx() );
+        if( Config::bestLRMatches() )
+            sort( lmatches_rl.begin(), lmatches_rl.end(), sort_descriptor_by_queryIdx() );
 
         s4 += 1000.0 * clk.Tac(); clk.Tic();
 
-        int n_matches = min(lmatches_lr.size(),lmatches_rl.size());
+        int n_matches;
+        if( Config::bestLRMatches() )
+            n_matches = min(lmatches_lr.size(),lmatches_rl.size());
+        else
+            n_matches = lmatches_lr.size();
         for( int i = 0; i < n_matches; i++ )
         {
-            // check if they are mutual best matches
+            // check if they are mutual best matches ( if bestLRMatches() )
             int lr_qdx = lmatches_lr[i][0].queryIdx;
             int lr_tdx = lmatches_lr[i][0].trainIdx;
-            int rl_tdx = lmatches_rl[lr_tdx][0].trainIdx;
+            int rl_tdx;
+            if( Config::bestLRMatches() )
+                rl_tdx = lmatches_rl[lr_tdx][0].trainIdx;
+            else
+                rl_tdx = lr_qdx;
             // check if they are mutual best matches and the minimum distance
             double dist_nn = lmatches_lr[i][0].distance;
             double dist_12 = lmatches_lr[i][1].distance - lmatches_lr[i][0].distance;
@@ -268,20 +293,14 @@ void StereoFrame::detectFeatures(Mat img, vector<KeyPoint> &points, Mat &pdesc, 
     opts.density_th   = Config::lsdDensityTh();
     opts.n_bins       = Config::lsdNBins();
 
-    //cout << endl << x << endl;
-
     // Declare objects
     Ptr<LSDDetector>        lsd = LSDDetector::createLSDDetector();
     Ptr<BinaryDescriptor>   lbd = BinaryDescriptor::createBinaryDescriptor();
     Ptr<ORB>                orb = ORB::create( Config::orbNFeatures(), Config::orbScaleFactor(), Config::orbNLevels() );
 
-    //cout << endl << x << endl;
-
     // Detect point features
     if( Config::hasPoints() )
         orb->detectAndCompute( img, Mat(), points, pdesc, false);
-
-    //cout << endl << x << endl;
 
     // Detect line features
     if( Config::hasLines() )
@@ -290,7 +309,6 @@ void StereoFrame::detectFeatures(Mat img, vector<KeyPoint> &points, Mat &pdesc, 
         lbd->compute( img, lines, ldesc);
     }
 
-    //cout << endl << x << endl;
 }
 
 void StereoFrame::matchPointFeatures(BFMatcher* bfm, Mat pdesc_1, Mat pdesc_2, vector<vector<DMatch>> &pmatches_12  )

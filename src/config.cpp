@@ -10,6 +10,8 @@ Config::Config()
     lr_in_parallel  = true;
     robust_cost     = true;
     motion_prior    = false;
+    best_lr_matches = true;
+    //fund_matrix_filter = false;
 
     // points detection and matching
     orb_nfeatures    = 2000;
