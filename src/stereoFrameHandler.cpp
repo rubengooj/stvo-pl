@@ -1,4 +1,5 @@
 #include <stereoFrameHandler.h>
+#include <future>
 
 #pragma message("TODO: introduce in the general class, with the rest of auxiliar functions")
 struct sort_descriptor_by_queryIdx
@@ -53,14 +54,29 @@ void StereoFrameHandler::f2fTracking()
     matched_pt.clear();
     if( Config::hasPoints() && !(curr_frame->stereo_pt.size()==0) && !(prev_frame->stereo_pt.size()==0)  )
     {
-        BFMatcher* bfm = new BFMatcher( NORM_L2, false );    // cross-check
+        BFMatcher* bfm = new BFMatcher( NORM_HAMMING, false );    // cross-check
         Mat pdesc_l1, pdesc_l2;
         vector<vector<DMatch>> pmatches_12, pmatches_21;
         // 12 and 21 matches
         pdesc_l1 = prev_frame->pdesc_l;
-        pdesc_l2 = curr_frame->pdesc_l;
-        bfm->knnMatch( pdesc_l1, pdesc_l2, pmatches_12, 2);
-        bfm->knnMatch( pdesc_l2, pdesc_l1, pmatches_21, 2);
+        pdesc_l2 = curr_frame->pdesc_l;        
+        if( Config::bestLRMatches() )
+        {
+            if( Config::lrInParallel() )
+            {
+                auto match_l = async( launch::async, &StereoFrameHandler::matchPointFeatures, this, bfm, pdesc_l1, pdesc_l2, ref(pmatches_12) );
+                auto match_r = async( launch::async, &StereoFrameHandler::matchPointFeatures, this, bfm, pdesc_l2, pdesc_l1, ref(pmatches_21) );
+                match_l.wait();
+                match_r.wait();
+            }
+            else
+            {
+                bfm->knnMatch( pdesc_l1, pdesc_l2, pmatches_12, 2);
+                bfm->knnMatch( pdesc_l2, pdesc_l1, pmatches_21, 2);
+            }
+        }
+        else
+            bfm->knnMatch( pdesc_l1, pdesc_l2, pmatches_12, 2);
 
         // ---------------------------------------------------------------------
         // sort matches by the distance between the best and second best matches
@@ -73,15 +89,20 @@ void StereoFrameHandler::f2fTracking()
 
         // resort according to the queryIdx
         sort( pmatches_12.begin(), pmatches_12.end(), sort_descriptor_by_queryIdx() );
-        sort( pmatches_21.begin(), pmatches_21.end(), sort_descriptor_by_queryIdx() );
+        if( Config::bestLRMatches() )
+            sort( pmatches_21.begin(), pmatches_21.end(), sort_descriptor_by_queryIdx() );
+
         // bucle around pmatches
         for( int i = 0; i < pmatches_12.size(); i++ )
         {
             // check if they are mutual best matches
             int lr_qdx = pmatches_12[i][0].queryIdx;
             int lr_tdx = pmatches_12[i][0].trainIdx;
-            //int rl_qdx = pmatches_rl[lr_tdx][0].queryIdx;
-            int rl_tdx = pmatches_21[lr_tdx][0].trainIdx;
+            int rl_tdx;
+            if( Config::bestLRMatches() )
+                rl_tdx = pmatches_21[lr_tdx][0].trainIdx;
+            else
+                rl_tdx = lr_qdx;
             // check if they are mutual best matches and the minimum distance
             double dist_nn = pmatches_12[i][0].distance;
             double dist_12 = pmatches_12[i][1].distance - pmatches_12[i][0].distance;
@@ -106,8 +127,23 @@ void StereoFrameHandler::f2fTracking()
         // 12 and 21 matches
         ldesc_l1 = prev_frame->ldesc_l;
         ldesc_l2 = curr_frame->ldesc_l;
-        bdm->knnMatch( ldesc_l1, ldesc_l2, lmatches_12, 2);
-        bdm->knnMatch( ldesc_l2, ldesc_l1, lmatches_21, 2);
+        if( Config::bestLRMatches() )
+        {
+            if( Config::lrInParallel() )
+            {
+                auto match_l = async( launch::async, &StereoFrameHandler::matchLineFeatures, this, bdm, ldesc_l1, ldesc_l2, ref(lmatches_12) );
+                auto match_r = async( launch::async, &StereoFrameHandler::matchLineFeatures, this, bdm, ldesc_l2, ldesc_l1, ref(lmatches_21) );
+                match_l.wait();
+                match_r.wait();
+            }
+            else
+            {
+                bdm->knnMatch( ldesc_l1, ldesc_l2, lmatches_12, 2);
+                bdm->knnMatch( ldesc_l2, ldesc_l1, lmatches_21, 2);
+            }
+        }
+        else
+            bdm->knnMatch( ldesc_l1, ldesc_l2, lmatches_12, 2);
 
         // ---------------------------------------------------------------------
         // sort matches by the distance between the best and second best matches
@@ -120,15 +156,19 @@ void StereoFrameHandler::f2fTracking()
 
         // resort according to the queryIdx
         sort( lmatches_12.begin(), lmatches_12.end(), sort_descriptor_by_queryIdx() );
-        sort( lmatches_21.begin(), lmatches_21.end(), sort_descriptor_by_queryIdx() );
+        if( Config::bestLRMatches() )
+            sort( lmatches_21.begin(), lmatches_21.end(), sort_descriptor_by_queryIdx() );
         // bucle around pmatches
         for( int i = 0; i < lmatches_12.size(); i++ )
         {
             // check if they are mutual best matches
             int lr_qdx = lmatches_12[i][0].queryIdx;
             int lr_tdx = lmatches_12[i][0].trainIdx;
-            //int rl_qdx = pmatches_rl[lr_tdx][0].queryIdx;
-            int rl_tdx = lmatches_21[lr_tdx][0].trainIdx;
+            int rl_tdx;
+            if( Config::bestLRMatches() )
+                rl_tdx = lmatches_21[lr_tdx][0].trainIdx;
+            else
+                rl_tdx = lr_qdx;
             // check if they are mutual best matches and the minimum distance
             double dist_nn = lmatches_12[i][0].distance;
             double dist_12 = lmatches_12[i][1].distance - lmatches_12[i][0].distance;
@@ -149,6 +189,16 @@ void StereoFrameHandler::f2fTracking()
     n_inliers_ls = matched_ls.size();
     n_inliers    = n_inliers_pt + n_inliers_ls;
 
+}
+
+void StereoFrameHandler::matchPointFeatures(BFMatcher* bfm, Mat pdesc_1, Mat pdesc_2, vector<vector<DMatch>> &pmatches_12  )
+{
+    bfm->knnMatch( pdesc_1, pdesc_2, pmatches_12, 2);
+}
+
+void StereoFrameHandler::matchLineFeatures(Ptr<BinaryDescriptorMatcher> bdm, Mat ldesc_1, Mat ldesc_2, vector<vector<DMatch>> &lmatches_12  )
+{
+    bdm->knnMatch( ldesc_1, ldesc_2, lmatches_12, 2);
 }
 
 void StereoFrameHandler::updateFrame()

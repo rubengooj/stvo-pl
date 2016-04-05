@@ -76,6 +76,9 @@ public:
 
 private:
 
+    void matchPointFeatures(BFMatcher* bfm, Mat pdesc_1, Mat pdesc_2, vector<vector<DMatch>> &pmatches_12  );   // TODO: remove (already implemented in stereoFrame.cpp)
+    void matchLineFeatures(Ptr<BinaryDescriptorMatcher> bdm, Mat ldesc_1, Mat ldesc_2, vector<vector<DMatch>> &lmatches_12  ); // TODO: remove (already implemented in stereoFrame.cpp)
+
     void removeOutliers( Matrix4d DT );
     void gaussNewtonOptimization(Matrix4d &DT, Matrix6d &DT_cov);
     void optimizeFunctions_nonweighted(Matrix4d DT, Matrix6d &H, Vector6d &g, double &err);
