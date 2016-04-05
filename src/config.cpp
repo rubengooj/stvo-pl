@@ -8,13 +8,13 @@ Config::Config()
     has_points      = true;
     has_lines       = true;
     lr_in_parallel  = true;
-    robust_cost     = true;
-    motion_prior    = false;
+    robust_cost     = true;    
     best_lr_matches = true;
+    //motion_prior       = false;
     //fund_matrix_filter = false;
 
     // points detection and matching
-    orb_nfeatures    = 2000;
+    orb_nfeatures    = 1000;
     orb_scale_factor = 1.0;
     orb_nlevels      = 1;
     max_dist_epip    = 1.0;
@@ -30,11 +30,11 @@ Config::Config()
     lsd_log_eps      = 1.0;
     lsd_density_th   = 0.6;
     lsd_n_bins       = 1024;
+    min_line_length  = 0.025;
 
     min_horiz_angle  = 10.0;
     max_angle_diff   = 10.0;
     line_horiz_th    = 0.1;
-    min_line_length  = 0.03;
     desc_th_l        = 1.5;
 
     // transform to radians

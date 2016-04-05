@@ -57,20 +57,20 @@ void StereoFrame::extractStereoFeatures()
 
     mrpt::utils::CTicTac clk;
     double s1, s2, s3, s4, s5;
-
     clk.Tic();
 
+    double min_line_length_th = Config::minLineLength() * std::min( cam->getWidth(), cam->getHeight() );
     if( Config::lrInParallel() )
     {
-        auto detect_l = async(launch::async, &StereoFrame::detectFeatures, this, img_l, ref(points_l), ref(pdesc_l), ref(lines_l), ref(ldesc_l) );
-        auto detect_r = async(launch::async, &StereoFrame::detectFeatures, this, img_r, ref(points_r), ref(pdesc_r), ref(lines_r), ref(ldesc_r) );
+        auto detect_l = async(launch::async, &StereoFrame::detectFeatures, this, img_l, ref(points_l), ref(pdesc_l), ref(lines_l), ref(ldesc_l), min_line_length_th );
+        auto detect_r = async(launch::async, &StereoFrame::detectFeatures, this, img_r, ref(points_r), ref(pdesc_r), ref(lines_r), ref(ldesc_r), min_line_length_th );
         detect_l.wait();
         detect_r.wait();
     }
     else
     {
-        detectFeatures(img_l,points_l,pdesc_l,lines_l,ldesc_l);
-        detectFeatures(img_r,points_r,pdesc_r,lines_r,ldesc_r);
+        detectFeatures(img_l,points_l,pdesc_l,lines_l,ldesc_l,min_line_length_th);
+        detectFeatures(img_r,points_r,pdesc_r,lines_r,ldesc_r,min_line_length_th);
     }
 
     s1 = 1000.0 * clk.Tac(); clk.Tic();
@@ -232,7 +232,6 @@ void StereoFrame::extractStereoFeatures()
             double dist_nn = lmatches_lr[i][0].distance;
             double dist_12 = lmatches_lr[i][1].distance - lmatches_lr[i][0].distance;
             double length  = lines_r[lr_tdx].lineLength;
-            double min_line_length_th = Config::minLineLength() * std::min( cam->getWidth(), cam->getHeight() );
 
             if( lr_qdx == rl_tdx && dist_nn < nn_dist_th && dist_12 > nn12_dist_th && length > min_line_length_th)
             {
@@ -279,7 +278,7 @@ void StereoFrame::extractStereoFeatures()
 
 }
 
-void StereoFrame::detectFeatures(Mat img, vector<KeyPoint> &points, Mat &pdesc, vector<KeyLine> &lines, Mat &ldesc)
+void StereoFrame::detectFeatures(Mat img, vector<KeyPoint> &points, Mat &pdesc, vector<KeyLine> &lines, Mat &ldesc, double min_line_length)
 {
 
     // lsd parameters
@@ -292,6 +291,7 @@ void StereoFrame::detectFeatures(Mat img, vector<KeyPoint> &points, Mat &pdesc, 
     opts.log_eps      = Config::lsdLogEps();
     opts.density_th   = Config::lsdDensityTh();
     opts.n_bins       = Config::lsdNBins();
+    opts.min_length   = min_line_length;
 
     // Declare objects
     Ptr<LSDDetector>        lsd = LSDDetector::createLSDDetector();
