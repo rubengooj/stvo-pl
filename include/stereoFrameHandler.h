@@ -49,6 +49,8 @@ typedef Matrix<double,6,1> Vector6d;
 
 class StereoFrame;
 
+namespace StVO{
+
 class StereoFrameHandler
 {
 
@@ -65,11 +67,16 @@ public:
     void optimizePose();
     void updateFrame();
 
-    int  n_inliers, n_inliers_pt, n_inliers_ls;
+    void currFrameIsKF();   // TODO: set as prev_keyframe and reset features' idx
+    void checkKFCommonCorrespondences(double p_th, double l_th);
+    cv::Mat checkKFCommonCorrespondencesPlot(double p_th, double l_th);
+
+    int  n_inliers, n_inliers_pt, n_inliers_ls, max_idx_pt, max_idx_ls, max_idx_pt_prev_kf, max_idx_ls_prev_kf;
 
     list<PointFeature*> matched_pt;
     list<LineFeature*>  matched_ls;
 
+    StereoFrame* prev_keyframe;
     StereoFrame* prev_frame;
     StereoFrame* curr_frame;
     PinholeStereoCamera* cam;
@@ -80,10 +87,11 @@ private:
     void matchLineFeatures(Ptr<BinaryDescriptorMatcher> bdm, Mat ldesc_1, Mat ldesc_2, vector<vector<DMatch>> &lmatches_12  ); // TODO: remove (already implemented in stereoFrame.cpp)
 
     void removeOutliers( Matrix4d DT );
-    void gaussNewtonOptimization(Matrix4d &DT, Matrix6d &DT_cov);
-    void optimizeFunctions_nonweighted(Matrix4d DT, Matrix6d &H, Vector6d &g, double &err);
+    void gaussNewtonOptimization(Matrix4d &DT, Matrix6d &DT_cov, double &err_);
+    void levMarquardtOptimization(Matrix4d &DT, Matrix6d &DT_cov, double &err_);
+    void optimizeFunctions_nonweighted(Matrix4d DT, Matrix6d &H, Vector6d &g, double &e);
     void optimizeFunctions_uncweighted(Matrix4d DT, Matrix6d &H, Vector6d &g, double &err);
 
 };
 
-
+}
