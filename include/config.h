@@ -19,6 +19,9 @@ public:
     static bool&    motionPrior()       { return getInstance().motion_prior; }
     static bool&    bestLRMatches()     { return getInstance().best_lr_matches; }
     static bool&    fundMatrixFilter()  { return getInstance().fund_matrix_filter; }
+    static bool&    useEDLines()        { return getInstance().use_edlines; }
+    static bool&    scalePointsLines()  { return getInstance().scale_points_lines; }
+    static bool&    useLevMarquardt()   { return getInstance().use_lev_marquardt; }
 
     // points detection and matching
     static int&     orbNFeatures()      { return getInstance().orb_nfeatures; }
@@ -45,6 +48,10 @@ public:
     static double&  descThL()           { return getInstance().desc_th_l; }
 
     // optimization
+    static double&  lambdaLM()           { return getInstance().lambda_lm; }
+    static double&  lambdaK()           { return getInstance().lambda_k; }
+
+
     static double&  homogTh()           { return getInstance().homog_th; }
     static int&     minFeatures()       { return getInstance().min_features; }
     static int&     maxIters()          { return getInstance().max_iters; }
@@ -64,6 +71,9 @@ private:
     bool motion_prior;
     bool best_lr_matches;
     bool fund_matrix_filter;
+    bool use_edlines;
+    bool scale_points_lines;
+    bool use_lev_marquardt;
 
     // points detection and matching
     int    orb_nfeatures;
@@ -91,6 +101,8 @@ private:
     double desc_th_l;
 
     // optimization
+    double lambda_lm;
+    double lambda_k;
     double homog_th;
     int    min_features;
     int    max_iters;

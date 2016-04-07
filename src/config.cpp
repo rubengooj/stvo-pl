@@ -4,17 +4,21 @@
 
 Config::Config()
 {
+
     // flags
-    has_points      = true;
-    has_lines       = true;
-    lr_in_parallel  = true;
-    robust_cost     = true;    
-    best_lr_matches = true;
+    has_points         = true;
+    has_lines          = true;
+    lr_in_parallel     = true;
+    robust_cost        = true;
+    best_lr_matches    = true;
+    use_edlines        = true;
+    scale_points_lines = true;
+    use_lev_marquardt  = true;
     //motion_prior       = false;
     //fund_matrix_filter = false;
 
     // points detection and matching
-    orb_nfeatures    = 1000;
+    orb_nfeatures    = 2000;
     orb_scale_factor = 1.0;
     orb_nlevels      = 1;
     max_dist_epip    = 1.0;
@@ -23,19 +27,19 @@ Config::Config()
 
     // lines detection and matching
     lsd_refine       = 2;   // 0 NONE - 1 STD - 2 ADV
-    lsd_scale        = 1.0;
-    lsd_sigma_scale  = 0.8;
+    lsd_scale        = 0.8;
+    lsd_sigma_scale  = 0.6;
     lsd_quant        = 2.0;
     lsd_ang_th       = 22.5;
     lsd_log_eps      = 1.0;
     lsd_density_th   = 0.6;
     lsd_n_bins       = 1024;
-    min_line_length  = 0.025;
 
-    min_horiz_angle  = 10.0;
-    max_angle_diff   = 10.0;
+    min_line_length  = 0.025;
+    min_horiz_angle  = 5.0;
+    max_angle_diff   = 180.0;
     line_horiz_th    = 0.1;
-    desc_th_l        = 1.5;
+    desc_th_l        = 1.0;
 
     // transform to radians
     min_horiz_angle *= PI / 180.0;
@@ -44,14 +48,16 @@ Config::Config()
     // transform with the relative size of image
 
     // optimization
+    lambda_lm        = 0.001;
+    lambda_k         = 10.0;
+
     homog_th         = 0.0000001;
-    min_features     = 20;
+    min_features     = 10;
     max_iters        = 5;
-    max_iters_ref    = 10;
+    max_iters_ref    = 20;
     min_error        = 0.0000001;
     min_error_change = 0.0000001;
-    inlier_k         = 1.5;
-    sigma_px         = 1.0;
+    inlier_k         = 3.0;
 
 }
 
