@@ -23,15 +23,20 @@ double vector_stdv_mad( VectorXf residues)
 
 double vector_stdv_mad( vector<double> residues)
 {
-    // Return the standard deviation of vector with MAD estimation
-    int n_samples = residues.size();
-    sort( residues.begin(),residues.end() );
-    double median = residues[ n_samples/2 ];
-    for( int i = 0; i < n_samples; i++)
-        residues[i] = fabsf( residues[i] - median );
-    sort( residues.begin(),residues.end() );
-    double MAD = residues[ n_samples/2 ];
-    return 1.4826 * MAD;
+    if( residues.size() != 0 )
+    {
+        // Return the standard deviation of vector with MAD estimation
+        int n_samples = residues.size();
+        sort( residues.begin(),residues.end() );
+        double median = residues[ n_samples/2 ];
+        for( int i = 0; i < n_samples; i++)
+            residues[i] = fabsf( residues[i] - median );
+        sort( residues.begin(),residues.end() );
+        double MAD = residues[ n_samples/2 ];
+        return 1.4826 * MAD;
+    }
+    else
+        return 0.0;
 }
 
 namespace StVO{
@@ -97,14 +102,12 @@ void StereoFrameHandler::f2fTracking()
         else
             bfm->knnMatch( pdesc_l1, pdesc_l2, pmatches_12, 2);
 
-        // ---------------------------------------------------------------------
-        // sort matches by the distance between the best and second best matches
-        #pragma message("TODO: try robust standard deviation (MAD)")
+        // // sort matches by the distance between the best and second best matches
+        // pointDescriptorMAD(pmatches_lr,nn_dist_th, nn12_dist_th);
+        // nn_dist_th    = nn_dist_th   * Config::descThP();
+        // nn12_dist_th  = nn12_dist_th * Config::descThP();
         double nn_dist_th, nn12_dist_th;
-        curr_frame->pointDescriptorMAD( pmatches_12, nn_dist_th, nn12_dist_th );
-        nn_dist_th    = nn_dist_th   * Config::descThP();
-        nn12_dist_th  = nn12_dist_th * Config::descThP();
-        // ---------------------------------------------------------------------
+        nn12_dist_th  = Config::minRatio12P();
 
         // resort according to the queryIdx
         sort( pmatches_12.begin(), pmatches_12.end(), sort_descriptor_by_queryIdx() );
@@ -124,10 +127,15 @@ void StereoFrameHandler::f2fTracking()
                 rl_tdx = lr_qdx;
             // check if they are mutual best matches and the minimum distance
             double dist_nn = pmatches_12[i][0].distance;
-            double dist_12 = pmatches_12[i][1].distance - pmatches_12[i][0].distance;
-            if( lr_qdx == rl_tdx  && dist_12 > nn12_dist_th && dist_nn < nn_dist_th )
+            double dist_12 = pmatches_12[i][0].distance / pmatches_12[i][1].distance;
+
+            double dispL   = fabsf( curr_frame->stereo_pt[lr_tdx]->pl(0) - prev_frame->stereo_pt[lr_qdx]->pl(0) );
+            double dispR   = fabsf( curr_frame->stereo_pt[lr_tdx]->pl(0) - curr_frame->stereo_pt[lr_tdx]->disp
+                                    - ( prev_frame->stereo_pt[lr_qdx]->pl(0) - prev_frame->stereo_pt[lr_qdx]->disp ) );
+            double dispTh  = Config::maxF2FDisp();
+
+            if( lr_qdx == rl_tdx  && dist_12 > nn12_dist_th && dispL <= dispTh && dispR <= dispTh )// && dist_nn < nn_dist_th )
             {
-                #pragma message("TODO: check f2f consistency")
                 PointFeature* point_ = prev_frame->stereo_pt[lr_qdx];
                 point_->pl_obs = curr_frame->stereo_pt[lr_tdx]->pl;
                 point_->inlier = true;
@@ -318,7 +326,7 @@ void StereoFrameHandler::optimizePose()
     }
 
     // set estimated pose
-    if( is_finite(DT_) && err < 1.0 )
+    if( is_finite(DT_) && err < Config::maxOptimError() )
     {
         curr_frame->DT     = inverse_transformation( DT );  //check what's best
         curr_frame->Tfw    = prev_frame->Tfw * curr_frame->DT;
@@ -520,7 +528,7 @@ void StereoFrameHandler::optimizeFunctions_nonweighted(Matrix4d DT, Matrix6d &H,
                 (*it)->inlier = false;
         }
     }
-    if( Config::scalePointsLines() )
+    if( Config::scalePointsLines() && Config::hasPoints() )
         S_p = vector_stdv_mad(r_p);
 
     // line segment features
@@ -597,7 +605,7 @@ void StereoFrameHandler::optimizeFunctions_nonweighted(Matrix4d DT, Matrix6d &H,
 
     // sum H, g and err from both points and lines
     if( Config::scalePointsLines() && S_l > Config::homogTh() && S_p > Config::homogTh() &&
-        Config::hasPoints() && Config::hasLines() )
+        Config::hasPoints() )
     {
         double S_l_inv = 1.0 / S_l;
         double S_p_inv = 1.0 / S_p;
