@@ -180,15 +180,12 @@ void StereoFrame::extractInitialStereoFeatures()
         else
             bdm->knnMatch( ldesc_l,ldesc_r, lmatches_lr, 2);
 
-        // ---------------------------------------------------------------------
-        #pragma message("TODO: try MAD deviation")
-        #pragma message("TODO: try filtering lines with segment's length")
-        // sort matches by the distance between the best and second best matches
+        // // sort matches by the distance between the best and second best matches
         double nn_dist_th, nn12_dist_th;
-        lineDescriptorMAD( lmatches_lr, nn_dist_th, nn12_dist_th);
-        nn_dist_th    = nn_dist_th   * Config::descThL();
+        lineDescriptorMAD(lmatches_lr,nn_dist_th, nn12_dist_th);
+        // nn_dist_th    = nn_dist_th   * Config::descThL();
         nn12_dist_th  = nn12_dist_th * Config::descThL();
-        // ---------------------------------------------------------------------
+        //double nn12_dist_th  = Config::minRatio12L();
 
         // bucle around pmatches
         sort( lmatches_lr.begin(), lmatches_lr.end(), sort_descriptor_by_queryIdx() );
@@ -213,11 +210,11 @@ void StereoFrame::extractInitialStereoFeatures()
             else
                 rl_tdx = lr_qdx;
             // check if they are mutual best matches and the minimum distance
-            double dist_nn = lmatches_lr[i][0].distance;
+            //double dist_nn = lmatches_lr[i][0].distance;
             double dist_12 = lmatches_lr[i][1].distance - lmatches_lr[i][0].distance;
             double length  = lines_r[lr_tdx].lineLength;
 
-            if( lr_qdx == rl_tdx && dist_nn < nn_dist_th && dist_12 > nn12_dist_th && length > min_line_length_th)
+            if( lr_qdx == rl_tdx && length > min_line_length_th && dist_12 > nn12_dist_th )
             {
                 // check stereo epipolar constraint
                 if( fabsf(lines_l[lr_qdx].angle) >= Config::minHorizAngle() && fabsf(lines_r[lr_tdx].angle) >= Config::minHorizAngle() && fabsf(angDiff(lines_l[lr_qdx].angle,lines_r[lr_tdx].angle)) < Config::maxAngleDiff() )
@@ -386,15 +383,12 @@ void StereoFrame::extractStereoFeatures()
         else
             bdm->knnMatch( ldesc_l,ldesc_r, lmatches_lr, 2);
 
-        // ---------------------------------------------------------------------
-        #pragma message("TODO: try MAD deviation")
-        #pragma message("TODO: try filtering lines with segment's length")
-        // sort matches by the distance between the best and second best matches
+        // // sort matches by the distance between the best and second best matches
         double nn_dist_th, nn12_dist_th;
-        lineDescriptorMAD( lmatches_lr, nn_dist_th, nn12_dist_th);
-        nn_dist_th    = nn_dist_th   * Config::descThL();
+        lineDescriptorMAD(lmatches_lr,nn_dist_th, nn12_dist_th);
+        // nn_dist_th    = nn_dist_th   * Config::descThL();
         nn12_dist_th  = nn12_dist_th * Config::descThL();
-        // ---------------------------------------------------------------------
+        //double nn12_dist_th  = Config::minRatio12L();
 
         // bucle around pmatches
         sort( lmatches_lr.begin(), lmatches_lr.end(), sort_descriptor_by_queryIdx() );
@@ -417,11 +411,11 @@ void StereoFrame::extractStereoFeatures()
             else
                 rl_tdx = lr_qdx;
             // check if they are mutual best matches and the minimum distance
-            double dist_nn = lmatches_lr[i][0].distance;
+            //double dist_nn = lmatches_lr[i][0].distance;
             double dist_12 = lmatches_lr[i][1].distance - lmatches_lr[i][0].distance;
             double length  = lines_r[lr_tdx].lineLength;
 
-            if( lr_qdx == rl_tdx && dist_nn < nn_dist_th && dist_12 > nn12_dist_th && length > min_line_length_th)
+            if( lr_qdx == rl_tdx && length > min_line_length_th && dist_12 > nn12_dist_th )
             {
                 // check stereo epipolar constraint
                 if( fabsf(lines_l[lr_qdx].angle) >= Config::minHorizAngle() && fabsf(lines_r[lr_tdx].angle) >= Config::minHorizAngle() && fabsf(angDiff(lines_l[lr_qdx].angle,lines_r[lr_tdx].angle)) < Config::maxAngleDiff() )
@@ -466,7 +460,6 @@ void StereoFrame::extractStereoFeatures()
 
 void StereoFrame::detectFeatures(Mat img, vector<KeyPoint> &points, Mat &pdesc, vector<KeyLine> &lines, Mat &ldesc, double min_line_length)
 {
-
 
     // Declare objects
     Ptr<BinaryDescriptor>   lbd = BinaryDescriptor::createBinaryDescriptor();
@@ -547,26 +540,6 @@ void StereoFrame::detectFeatures(Mat img, vector<KeyPoint> &points, Mat &pdesc, 
             lsd->detect( img, lines, 1, 1, opts);
             lbd->compute( img, lines, ldesc);
         }
-
-        //cout << endl << lines.size() << endl;
-        /*cout << endl << ldesc << endl;
-        getchar();*/
-        /*cv::imshow( "olajsflkajsflakjsd", img);
-        cv::waitKey(0);*/
-        //cout << endl << "EDLine + LBD: " << 1000 * clock.Tac() << " ms \t " << lines.size() << " lines";
-        /*//clock.Tic();
-        lines.clear();
-        lsd->detect( img, lines, 1, 1, opts);
-        for(int i = 0; i < lines.size(); i++)
-        {
-            KeyLine l_ = lines[i];
-            //cout << endl << l_.angle << " " << l_.numOfPixels << " " << l_.octave << " " << l_.class_id << " " << l_.response ;
-        }
-        lbd->compute( img, lines, ldesc);
-        /*cout << endl << ldesc << endl;
-        getchar();*/
-        //cout << endl << "LSD + LBD   : " << 1000 * clock.Tac() << " ms \t " << lines.size() << " lines" << endl;*/
-
     }
 
 }
@@ -629,10 +602,10 @@ void StereoFrame::lineDescriptorMAD( const vector<vector<DMatch>> matches, doubl
 
     // estimate the NN's 12 distance standard deviation
     double nn12_dist_median;
-    sort( matches_12.begin(), matches_12.end(), compare_descriptor_by_NN12_ratio() );
-    nn12_mad = matches_12[int(matches_12.size()/2)][0].distance / matches_12[int(matches_12.size()/2)][1].distance;
+    sort( matches_12.begin(), matches_12.end(), compare_descriptor_by_NN12_dist() );
+    nn12_mad = matches_12[int(matches_12.size()/2)][1].distance - matches_12[int(matches_12.size()/2)][0].distance;
     for( int j = 0; j < matches_12.size(); j++)
-        matches_12[j][0].distance = fabsf( matches_12[j][0].distance / matches_12[j][1].distance - nn_dist_median );
+        matches_12[j][0].distance = fabsf( matches_12[j][1].distance - matches_12[j][0].distance - nn_dist_median );
     sort( matches_12.begin(), matches_12.end(), compare_descriptor_by_NN_dist() );
     nn12_mad =  1.4826 * matches_12[int(matches_12.size()/2)][0].distance;
 

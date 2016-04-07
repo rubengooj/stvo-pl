@@ -188,14 +188,11 @@ void StereoFrameHandler::f2fTracking()
         else
             bdm->knnMatch( ldesc_l1, ldesc_l2, lmatches_12, 2);
 
-        // ---------------------------------------------------------------------
-        // sort matches by the distance between the best and second best matches
-        #pragma message("TODO: try robust standard deviation (MAD)")
+        // // sort matches by the distance between the best and second best matches
         double nn_dist_th, nn12_dist_th;
-        curr_frame->pointDescriptorMAD( lmatches_12, nn_dist_th, nn12_dist_th );
-        nn_dist_th    = nn_dist_th   * Config::descThL();
+        curr_frame->lineDescriptorMAD(lmatches_12,nn_dist_th, nn12_dist_th);
+        // nn_dist_th    = nn_dist_th   * Config::descThL();
         nn12_dist_th  = nn12_dist_th * Config::descThL();
-        // ---------------------------------------------------------------------
 
         // resort according to the queryIdx
         sort( lmatches_12.begin(), lmatches_12.end(), sort_descriptor_by_queryIdx() );
@@ -213,9 +210,10 @@ void StereoFrameHandler::f2fTracking()
             else
                 rl_tdx = lr_qdx;
             // check if they are mutual best matches and the minimum distance
-            double dist_nn = lmatches_12[i][0].distance;
+            //double dist_nn = lmatches_12[i][0].distance;
             double dist_12 = lmatches_12[i][1].distance - lmatches_12[i][0].distance;
-            if( lr_qdx == rl_tdx  && dist_12 > nn12_dist_th && dist_nn < nn_dist_th )
+
+            if( lr_qdx == rl_tdx  && dist_12 > nn12_dist_th )
             {
                 #pragma message("TODO: check f2f consistency")
                 LineFeature* line_ = prev_frame->stereo_ls[lr_qdx];
