@@ -16,8 +16,8 @@ set(HAS_MRPT ${DEFAULT_HAS_MRPT} CACHE BOOL "Build the PointGrey Bumblebee2 SVO 
 
 SET(BUILD_SHARED_LIBS ON)
 SET(CMAKE_MODULE_PATH $ENV{CMAKE_MODULE_PATH})
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x -O3 -mtune=native")
-SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c++11 -O3")
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x -O3 -mtune=native -march=native")
+#SET(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   -std=c++11 -Os")
 
 # MRPT library (optional, only with representation purposes)
 if(HAS_MRPT)
