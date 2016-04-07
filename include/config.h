@@ -47,6 +47,7 @@ public:
     static double&  lineHorizTh()       { return getInstance().line_horiz_th; }
     static double&  minLineLength()     { return getInstance().min_line_length; }
     static double&  descThL()           { return getInstance().desc_th_l; }
+    static double&  minRatio12L()       { return getInstance().min_ratio_12_l; }
 
     // optimization
     static double&  lambdaLM()          { return getInstance().lambda_lm; }
@@ -101,6 +102,7 @@ private:
     double line_horiz_th;
     double min_line_length;
     double desc_th_l;
+    double min_ratio_12_l;
 
     // optimization
     double lambda_lm;

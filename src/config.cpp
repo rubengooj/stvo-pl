@@ -7,13 +7,13 @@ Config::Config()
 
     // flags
     has_points         = true;
-    has_lines          = false;
+    has_lines          = true;
     lr_in_parallel     = true;
     robust_cost        = true;
     best_lr_matches    = true;
-    use_edlines        = false;
+    use_edlines        = true;
     scale_points_lines = true;
-    use_lev_marquardt  = false;
+    use_lev_marquardt  = true;
     //motion_prior       = false;
     //fund_matrix_filter = false;
 
@@ -39,9 +39,9 @@ Config::Config()
 
     min_line_length  = 0.015; // relative to img size
     min_horiz_angle  = 5.0;
-    max_angle_diff   = 180.0;
+    max_angle_diff   = 10.0;
     line_horiz_th    = 0.1;
-    desc_th_l        = 1.5;
+    desc_th_l        = 0.5;
 
     // transform to radians
     min_horiz_angle *= PI / 180.0;
@@ -49,7 +49,7 @@ Config::Config()
 
     // optimization
     lambda_lm        = 0.001;
-    lambda_k         = 10.0;
+    lambda_k         = 5.0;
     homog_th         = 0.0000001;
     min_features     = 10;
     max_iters        = 5;
@@ -57,7 +57,7 @@ Config::Config()
     min_error        = 0.0000001;
     min_error_change = 0.0000001;
     inlier_k         = 2.0;
-    max_optim_error  = 99999.0;
+    max_optim_error  = 999999.0;
 
 }
 
