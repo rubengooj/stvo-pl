@@ -7,6 +7,7 @@ class Config
 public:
 
     Config();
+    Config(double img_width, double img_height);
     ~Config();
 
     static Config& getInstance();
@@ -30,6 +31,8 @@ public:
     static double&  maxDistEpip()       { return getInstance().max_dist_epip; }
     static double&  minDisp()           { return getInstance().min_disp; }
     static double&  descThP()           { return getInstance().desc_th_p; }
+    static double&  minRatio12P()       { return getInstance().min_ratio_12_p; }
+    static double&  maxF2FDisp()        { return getInstance().max_f2f_disp; }
 
     // lines detection and matching
     static int&     lsdRefine()         { return getInstance().lsd_refine; }
@@ -40,7 +43,6 @@ public:
     static double&  lsdLogEps()         { return getInstance().lsd_log_eps; }
     static double&  lsdDensityTh()      { return getInstance().lsd_density_th; }
     static int&     lsdNBins()          { return getInstance().lsd_n_bins; }
-
     static double&  minHorizAngle()     { return getInstance().min_horiz_angle; }
     static double&  maxAngleDiff()      { return getInstance().max_angle_diff; }
     static double&  lineHorizTh()       { return getInstance().line_horiz_th; }
@@ -48,10 +50,8 @@ public:
     static double&  descThL()           { return getInstance().desc_th_l; }
 
     // optimization
-    static double&  lambdaLM()           { return getInstance().lambda_lm; }
+    static double&  lambdaLM()          { return getInstance().lambda_lm; }
     static double&  lambdaK()           { return getInstance().lambda_k; }
-
-
     static double&  homogTh()           { return getInstance().homog_th; }
     static int&     minFeatures()       { return getInstance().min_features; }
     static int&     maxIters()          { return getInstance().max_iters; }
@@ -60,6 +60,7 @@ public:
     static double&  minErrorChange()    { return getInstance().min_error_change; }
     static double&  inlierK()           { return getInstance().inlier_k; }
     static double&  sigmaPx()           { return getInstance().sigma_px; }
+    static double&  maxOptimError()     { return getInstance().max_optim_error; }
 
 private:
 
@@ -83,6 +84,8 @@ private:
     double max_dist_epip;
     double min_disp;
     double desc_th_p;
+    double min_ratio_12_p;
+    double max_f2f_disp;
 
     // lines detection and matching
     int    lsd_refine;
@@ -111,6 +114,7 @@ private:
     double min_error_change;
     double inlier_k;
     double sigma_px;
+    double max_optim_error;
 
 };
 

@@ -7,23 +7,25 @@ Config::Config()
 
     // flags
     has_points         = true;
-    has_lines          = true;
+    has_lines          = false;
     lr_in_parallel     = true;
     robust_cost        = true;
     best_lr_matches    = true;
-    use_edlines        = true;
+    use_edlines        = false;
     scale_points_lines = true;
-    use_lev_marquardt  = true;
+    use_lev_marquardt  = false;
     //motion_prior       = false;
     //fund_matrix_filter = false;
 
     // points detection and matching
-    orb_nfeatures    = 2000;
-    orb_scale_factor = 1.0;
+    orb_nfeatures    = 1200;
+    orb_scale_factor = 1.2;
     orb_nlevels      = 1;
     max_dist_epip    = 1.0;
-    min_disp         = 10.0;
-    desc_th_p        = 1.5;
+    min_disp         = 1.0;
+    min_ratio_12_p   = 0.1;
+    max_f2f_disp     = 0.2;     // relative to img size
+    //desc_th_p        = 2.0;
 
     // lines detection and matching
     lsd_refine       = 2;   // 0 NONE - 1 STD - 2 ADV
@@ -35,29 +37,86 @@ Config::Config()
     lsd_density_th   = 0.6;
     lsd_n_bins       = 1024;
 
-    min_line_length  = 0.025;
+    min_line_length  = 0.015;       // relative to img size
     min_horiz_angle  = 5.0;
     max_angle_diff   = 180.0;
     line_horiz_th    = 0.1;
-    desc_th_l        = 1.0;
+    desc_th_l        = 1.5;
 
     // transform to radians
     min_horiz_angle *= PI / 180.0;
     max_angle_diff  *= PI / 180.0;
 
-    // transform with the relative size of image
-
     // optimization
     lambda_lm        = 0.001;
     lambda_k         = 10.0;
-
     homog_th         = 0.0000001;
     min_features     = 10;
     max_iters        = 5;
     max_iters_ref    = 20;
     min_error        = 0.0000001;
     min_error_change = 0.0000001;
-    inlier_k         = 3.0;
+    inlier_k         = 2.0;
+    max_optim_error  = 99999.0;
+
+}
+
+Config::Config(double img_width, double img_height)
+{
+
+    // flags
+    has_points         = true;
+    has_lines          = false;
+    lr_in_parallel     = true;
+    robust_cost        = true;
+    best_lr_matches    = true;
+    use_edlines        = false;
+    scale_points_lines = true;
+    use_lev_marquardt  = false;
+    //motion_prior       = false;
+    //fund_matrix_filter = false;
+
+    // points detection and matching
+    orb_nfeatures    = 1200;
+    orb_scale_factor = 1.2;
+    orb_nlevels      = 1;
+    max_dist_epip    = 1.0;
+    min_disp         = 1.0;
+    min_ratio_12_p   = 0.1 ;
+    max_f2f_disp     = 0.2 * img_width;     // relative to img size
+    //desc_th_p        = 2.0;
+
+    // lines detection and matching
+    lsd_refine       = 2;   // 0 NONE - 1 STD - 2 ADV
+    lsd_scale        = 0.8;
+    lsd_sigma_scale  = 0.6;
+    lsd_quant        = 2.0;
+    lsd_ang_th       = 22.5;
+    lsd_log_eps      = 1.0;
+    lsd_density_th   = 0.6;
+    lsd_n_bins       = 1024;
+
+    min_line_length  = 0.015 * std::min(img_width,img_height);
+    min_horiz_angle  = 5.0;
+    max_angle_diff   = 180.0;
+    line_horiz_th    = 0.1;
+    desc_th_l        = 1.5;
+
+    // transform to radians
+    min_horiz_angle *= PI / 180.0;
+    max_angle_diff  *= PI / 180.0;
+
+    // optimization
+    lambda_lm        = 0.001;
+    lambda_k         = 10.0;
+    homog_th         = 0.0000001;
+    min_features     = 10;
+    max_iters        = 5;
+    max_iters_ref    = 20;
+    min_error        = 0.0000001;
+    min_error_change = 0.0000001;
+    inlier_k         = 2.0;
+    max_optim_error  = 99999.0;
 
 }
 
