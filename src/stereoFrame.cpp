@@ -23,7 +23,7 @@ struct compare_descriptor_by_NN12_dist
 struct compare_descriptor_by_NN12_ratio
 {
     inline bool operator()(const vector<DMatch>& a, const vector<DMatch>& b){
-        return ( a[1].distance / a[0].distance > b[1].distance / b[0].distance );
+        return ( a[0].distance / a[1].distance > b[0].distance / b[1].distance );
     }
 };
 
@@ -100,14 +100,12 @@ void StereoFrame::extractInitialStereoFeatures()
         else
             bfm->knnMatch( pdesc_l, pdesc_r, pmatches_lr, 2);
 
-        // ---------------------------------------------------------------------
-        // sort matches by the distance between the best and second best matches
-        #pragma message("TODO: try robust standard deviation (MAD)")
+        // // sort matches by the distance between the best and second best matches
+        // pointDescriptorMAD(pmatches_lr,nn_dist_th, nn12_dist_th);
+        // nn_dist_th    = nn_dist_th   * Config::descThP();
+        // nn12_dist_th  = nn12_dist_th * Config::descThP();
         double nn_dist_th, nn12_dist_th;
-        pointDescriptorMAD(pmatches_lr,nn_dist_th, nn12_dist_th);
-        nn_dist_th    = nn_dist_th   * Config::descThP();
-        nn12_dist_th  = nn12_dist_th * Config::descThP();
-        // ---------------------------------------------------------------------
+        nn12_dist_th  = Config::minRatio12P();
 
         // resort according to the queryIdx
         sort( pmatches_lr.begin(), pmatches_lr.end(), sort_descriptor_by_queryIdx() );
@@ -131,8 +129,8 @@ void StereoFrame::extractInitialStereoFeatures()
                 rl_tdx = lr_qdx;
             // check if they are mutual best matches and the minimum distance
             double dist_nn = pmatches_lr[i][0].distance;
-            double dist_12 = pmatches_lr[i][1].distance - pmatches_lr[i][0].distance;
-            if( lr_qdx == rl_tdx  && dist_12 > nn12_dist_th && dist_nn < nn_dist_th )
+            double dist_12 = pmatches_lr[i][0].distance / pmatches_lr[i][1].distance;
+            if( lr_qdx == rl_tdx  && dist_12 > nn12_dist_th )//&& dist_nn < nn_dist_th )
             {
                 // check stereo epipolar constraint
                 if( fabsf( points_l[lr_qdx].pt.y-points_r[lr_tdx].pt.y) <= Config::maxDistEpip() )
@@ -271,7 +269,7 @@ void StereoFrame::extractStereoFeatures()
     vector<KeyPoint> points_l, points_r;
     vector<KeyLine>  lines_l, lines_r;
 
-    double min_line_length_th = Config::minLineLength() * std::min( cam->getWidth(), cam->getHeight() );
+    double min_line_length_th = Config::minLineLength() ;
     if( Config::lrInParallel() )
     {
         auto detect_l = async(launch::async, &StereoFrame::detectFeatures, this, img_l, ref(points_l), ref(pdesc_l), ref(lines_l), ref(ldesc_l), min_line_length_th );
@@ -311,14 +309,12 @@ void StereoFrame::extractStereoFeatures()
         else
             bfm->knnMatch( pdesc_l, pdesc_r, pmatches_lr, 2);
 
-        // ---------------------------------------------------------------------
-        // sort matches by the distance between the best and second best matches
-        #pragma message("TODO: try robust standard deviation (MAD)")
+        // // sort matches by the distance between the best and second best matches
+        // pointDescriptorMAD(pmatches_lr,nn_dist_th, nn12_dist_th);
+        // nn_dist_th    = nn_dist_th   * Config::descThP();
+        // nn12_dist_th  = nn12_dist_th * Config::descThP();
         double nn_dist_th, nn12_dist_th;
-        pointDescriptorMAD(pmatches_lr,nn_dist_th, nn12_dist_th);
-        nn_dist_th    = nn_dist_th   * Config::descThP();
-        nn12_dist_th  = nn12_dist_th * Config::descThP();
-        // ---------------------------------------------------------------------
+        nn12_dist_th  = Config::minRatio12P();
 
         // resort according to the queryIdx
         sort( pmatches_lr.begin(), pmatches_lr.end(), sort_descriptor_by_queryIdx() );
@@ -341,8 +337,8 @@ void StereoFrame::extractStereoFeatures()
                 rl_tdx = lr_qdx;
             // check if they are mutual best matches and the minimum distance
             double dist_nn = pmatches_lr[i][0].distance;
-            double dist_12 = pmatches_lr[i][1].distance - pmatches_lr[i][0].distance;
-            if( lr_qdx == rl_tdx  && dist_12 > nn12_dist_th && dist_nn < nn_dist_th )
+            double dist_12 = pmatches_lr[i][0].distance / pmatches_lr[i][1].distance;
+            if( lr_qdx == rl_tdx  && dist_12 > nn12_dist_th )//&& dist_nn < nn_dist_th )
             {
                 // check stereo epipolar constraint
                 if( fabsf( points_l[lr_qdx].pt.y-points_r[lr_tdx].pt.y) <= Config::maxDistEpip() )
@@ -598,19 +594,22 @@ void StereoFrame::pointDescriptorMAD( const vector<vector<DMatch>> matches, doub
     double nn_dist_median;
     sort( matches_nn.begin(), matches_nn.end(), compare_descriptor_by_NN_dist() );
     nn_mad = matches_nn[int(matches_nn.size()/2)][0].distance;
-    /*for( int j = 0; j < matches_nn.size(); j++)
+    for( int j = 0; j < matches_nn.size(); j++)
         matches_nn[j][0].distance = fabsf( matches_nn[j][0].distance - nn_dist_median );
     sort( matches_nn.begin(), matches_nn.end(), compare_descriptor_by_NN_dist() );
-    nn_mad = 1.4826 * matches_nn[int(matches_nn.size()/2)][0].distance;*/
+    nn_mad = 1.4826 * matches_nn[int(matches_nn.size()/2)][0].distance;
 
     // estimate the NN's 12 distance standard deviation
     double nn12_dist_median;
-    sort( matches_12.begin(), matches_12.end(), compare_descriptor_by_NN12_dist() );
-    nn12_mad = matches_12[int(matches_12.size()/2)][1].distance - matches_12[int(matches_12.size()/2)][0].distance;
-    /*for( int j = 0; j < matches_12.size(); j++)
-        matches_12[j][0].distance = fabsf( matches_12[j][1].distance - matches_12[j][0].distance - nn_dist_median );
+    sort( matches_12.begin(), matches_12.end(), compare_descriptor_by_NN12_ratio() );
+    nn_dist_median = matches_12[int(matches_12.size()/2)][0].distance / matches_12[int(matches_12.size()/2)][1].distance;
+    for( int j = 0; j < matches_12.size(); j++)
+        matches_12[j][0].distance = fabsf( matches_12[j][0].distance / matches_12[j][1].distance - nn_dist_median );
     sort( matches_12.begin(), matches_12.end(), compare_descriptor_by_NN_dist() );
-    nn12_mad = matches_12[int(matches_12.size()/2)][0].distance / 1.4826 ;*/
+    nn12_mad =  1.4826 * matches_12[int(matches_12.size()/2)][0].distance;
+
+    nn_mad   = 9999999.9;
+    //nn12_mad = -1.0;
 
 }
 
@@ -625,22 +624,22 @@ void StereoFrame::lineDescriptorMAD( const vector<vector<DMatch>> matches, doubl
     double nn_dist_median;
     sort( matches_nn.begin(), matches_nn.end(), compare_descriptor_by_NN_dist() );
     nn_mad = matches_nn[int(matches_nn.size()/2)][0].distance;
-    /*for( int j = 0; j < matches_nn.size(); j++)
+    for( int j = 0; j < matches_nn.size(); j++)
         matches_nn[j][0].distance = fabsf( matches_nn[j][0].distance - nn_dist_median );
     sort( matches_nn.begin(), matches_nn.end(), compare_descriptor_by_NN_dist() );
-    nn_mad = 1.4826 * matches_nn[int(matches_nn.size()/2)][0].distance;*/
+    nn_mad = 1.4826 * matches_nn[int(matches_nn.size()/2)][0].distance;
 
     // estimate the NN's 12 distance standard deviation
     double nn12_dist_median;
-    sort( matches_12.begin(), matches_12.end(), compare_descriptor_by_NN12_dist() );
-    nn12_mad = matches_12[int(matches_12.size()/2)][1].distance - matches_12[int(matches_12.size()/2)][0].distance;
-    /*for( int j = 0; j < matches_12.size(); j++)
-        matches_12[j][0].distance = fabsf( matches_12[j][1].distance - matches_12[j][0].distance - nn_dist_median );
+    sort( matches_12.begin(), matches_12.end(), compare_descriptor_by_NN12_ratio() );
+    nn12_mad = matches_12[int(matches_12.size()/2)][0].distance / matches_12[int(matches_12.size()/2)][1].distance;
+    for( int j = 0; j < matches_12.size(); j++)
+        matches_12[j][0].distance = fabsf( matches_12[j][0].distance / matches_12[j][1].distance - nn_dist_median );
     sort( matches_12.begin(), matches_12.end(), compare_descriptor_by_NN_dist() );
-    nn12_mad = matches_12[int(matches_12.size()/2)][0].distance / 1.4826 ;*/
+    nn12_mad =  1.4826 * matches_12[int(matches_12.size()/2)][0].distance;
 
-    nn_mad   = 9999999.9;
-    nn12_mad = -1.0;
+    //nn_mad   = 9999999.9;
+    //nn12_mad = -1.0;
 
 }
 
