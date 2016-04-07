@@ -37,7 +37,15 @@ Config::Config()
     lsd_density_th   = 0.6;
     lsd_n_bins       = 1024;
 
-    min_line_length  = 0.015; // relative to img size
+    edl_ksize        = 15;
+    edl_sigma        = 30.0;
+    edl_gradient_th  = 80;
+    edl_anchor_th    = 8;
+    edl_scan_interv  = 2;
+    edl_min_line_len = 15;
+    edl_fit_err_th   = 1.6;
+
+    min_line_length  = 0.025; // relative to img size
     min_horiz_angle  = 5.0;
     max_angle_diff   = 10.0;
     line_horiz_th    = 0.1;

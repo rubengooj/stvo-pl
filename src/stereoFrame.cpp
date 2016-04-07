@@ -476,13 +476,13 @@ void StereoFrame::detectFeatures(Mat img, vector<KeyPoint> &points, Mat &pdesc, 
         {
             // EDLines parameters
             BinaryDescriptor::EDLineParam opts;
-            opts.ksize               = 15;
-            opts.sigma               = 30.0;
-            opts.gradientThreshold   = 80;  //25
-            opts.anchorThreshold     = 8;
-            opts.scanIntervals       = 2;
-            opts.minLineLen          = 15;
-            opts.lineFitErrThreshold = 1.6;
+            opts.ksize               = Config::edlKsize();
+            opts.sigma               = Config::edlSigma();
+            opts.gradientThreshold   = Config::edlGradientTh();
+            opts.anchorThreshold     = Config::edlAnchorTh();
+            opts.scanIntervals       = Config::edlScanInterv();
+            opts.minLineLen          = Config::edlMinLineLen();
+            opts.lineFitErrThreshold = Config::edlFitErrTh();
 
             BinaryDescriptor::EDLineDetector edl = BinaryDescriptor::EDLineDetector(opts);
             BinaryDescriptor::LineChains lines_;

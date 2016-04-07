@@ -48,6 +48,13 @@ public:
     static double&  minLineLength()     { return getInstance().min_line_length; }
     static double&  descThL()           { return getInstance().desc_th_l; }
     static double&  minRatio12L()       { return getInstance().min_ratio_12_l; }
+    static int&     edlKsize()          { return getInstance().edl_ksize; }
+    static double&  edlSigma()          { return getInstance().edl_sigma; }
+    static int&     edlGradientTh()     { return getInstance().edl_gradient_th; }
+    static int&     edlAnchorTh()       { return getInstance().edl_anchor_th; }
+    static int&     edlScanInterv()     { return getInstance().edl_scan_interv; }
+    static int&     edlMinLineLen()     { return getInstance().edl_min_line_len; }
+    static double&  edlFitErrTh()       { return getInstance().edl_fit_err_th; }
 
     // optimization
     static double&  lambdaLM()          { return getInstance().lambda_lm; }
@@ -80,7 +87,6 @@ private:
     int    orb_nfeatures;
     double orb_scale_factor;
     int    orb_nlevels;
-
     double max_dist_epip;
     double min_disp;
     double desc_th_p;
@@ -96,7 +102,13 @@ private:
     double lsd_log_eps;
     double lsd_density_th;
     int    lsd_n_bins;
-
+    int    edl_ksize;
+    double edl_sigma;
+    int    edl_gradient_th;
+    int    edl_anchor_th;
+    int    edl_scan_interv;
+    int    edl_min_line_len;
+    double edl_fit_err_th;
     double min_horiz_angle;
     double max_angle_diff;
     double line_horiz_th;
