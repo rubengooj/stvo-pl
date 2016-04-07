@@ -29,6 +29,10 @@
 #include <boost/filesystem.hpp>
 #include "yaml-cpp/yaml.h"
 
+#include <mrpt/utils/CTicTac.h>
+
+using namespace StVO;
+
 int main(int argc, char **argv)
 {
 
@@ -152,6 +156,7 @@ int main(int argc, char **argv)
     scene.initializeScene(Tfw);
 
     // initialize and run PL-StVO
+    mrpt::utils::CTicTac clock;
     int frame_counter = 0;
     StereoFrameHandler* StVO = new StereoFrameHandler(cam_pin);
     for (std::map<std::string, std::string>::iterator it_l = sorted_imgs_l.begin(), it_r = sorted_imgs_r.begin();
@@ -170,10 +175,10 @@ int main(int argc, char **argv)
         else
         {
             // PL-StVO
-            double t0 = clock();
+            clock.Tic();
             StVO->insertStereoPair( img_l, img_r, frame_counter, T_inc );
             StVO->optimizePose();
-            double t1 = clock();
+            double t1 = 1000 * clock.Tac(); //ms
 
             // acces the pose
             T_inc   = StVO->curr_frame->DT;
@@ -181,23 +186,19 @@ int main(int argc, char **argv)
             cov_eig = StVO->curr_frame->DT_cov_eig;
 
             // update scene
-            scene.setText(frame_counter,t1-t0,StVO->n_inliers_pt,StVO->matched_pt.size(),StVO->n_inliers_ls,StVO->matched_ls.size());
+            scene.setText(frame_counter,t1,StVO->n_inliers_pt,StVO->matched_pt.size(),StVO->n_inliers_ls,StVO->matched_ls.size());
             scene.setCov( cov );
             scene.setPose( T_inc );
             scene.setImage( img_path_l.string() );
             scene.updateScene();
 
             // console output
-            /*cout.setf(ios::fixed,ios::floatfield); cout.precision(8);
+            cout.setf(ios::fixed,ios::floatfield); cout.precision(8);
             cout << "Frame: " << frame_counter << " \t Residual error: " << StVO->curr_frame->err_norm;
             cout.setf(ios::fixed,ios::floatfield); cout.precision(3);
-            cout << " \t Proc. time: " << (t1-t0) * 1000 / CLOCKS_PER_SEC << " ms\t ";
+            cout << " \t Proc. time: " << t1 << " ms\t ";
             cout << "\t Points: " << StVO->matched_pt.size() << " (" << StVO->n_inliers_pt << ") " <<
-                    "\t Lines:  " << StVO->matched_ls.size() << " (" << StVO->n_inliers_ls << ") " << endl;*/
-
-            //cout.setf(ios::fixed,ios::floatfield); cout.precision(8);
-            //cout << endl << T_inc << endl;
-            //cout << endl << cov_eig.transpose() << endl;
+                    "\t Lines:  " << StVO->matched_ls.size() << " (" << StVO->n_inliers_ls << ") " << endl;
 
             // update StVO
             StVO->updateFrame();
