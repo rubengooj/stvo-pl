@@ -39,7 +39,7 @@ using namespace Eigen;
 
 class StereoFrameHandler;
 
-class StVO{
+/*class StVO{
 
 public:
 
@@ -50,6 +50,4 @@ public:
     PinholeStereoCamera* cam;
     //Config*              cfg;
 
-
-
-};
+};*/
