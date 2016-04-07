@@ -1,7 +1,10 @@
 #include <stereoFrame.h>
 #include <future>
-
 #include <mrpt/utils/CTicTac.h>
+
+#include <opencv2/line_descriptor.hpp>
+#include <opencv2/line_descriptor/descriptor.hpp>
+
 
 struct compare_descriptor_by_NN_dist
 {
@@ -38,6 +41,8 @@ struct sort_descriptor_by_trainIdx
     }
 };
 
+namespace StVO{
+
 StereoFrame::StereoFrame(){}
 
 StereoFrame::StereoFrame(const Mat &img_l_, const Mat &img_r_ , const int idx_, PinholeStereoCamera *cam_) :
@@ -48,16 +53,12 @@ StereoFrame::StereoFrame(const Mat &img_l_, const Mat &img_r_ , const int idx_, 
 
 StereoFrame::~StereoFrame(){}
 
-void StereoFrame::extractStereoFeatures()
+void StereoFrame::extractInitialStereoFeatures()
 {
 
     // Feature detection and description
     vector<KeyPoint> points_l, points_r;
     vector<KeyLine>  lines_l, lines_r;
-
-    mrpt::utils::CTicTac clk;
-    double s1, s2, s3, s4, s5;
-    clk.Tic();
 
     double min_line_length_th = Config::minLineLength() * std::min( cam->getWidth(), cam->getHeight() );
     if( Config::lrInParallel() )
@@ -72,8 +73,6 @@ void StereoFrame::extractStereoFeatures()
         detectFeatures(img_l,points_l,pdesc_l,lines_l,ldesc_l,min_line_length_th);
         detectFeatures(img_r,points_r,pdesc_r,lines_r,ldesc_r,min_line_length_th);
     }
-
-    s1 = 1000.0 * clk.Tac(); clk.Tic();
 
     // Points stereo matching
     if( Config::hasPoints() && !(points_l.size()==0) && !(points_r.size()==0) )
@@ -101,7 +100,216 @@ void StereoFrame::extractStereoFeatures()
         else
             bfm->knnMatch( pdesc_l, pdesc_r, pmatches_lr, 2);
 
-        s2 = 1000.0 * clk.Tac(); clk.Tic();
+        // ---------------------------------------------------------------------
+        // sort matches by the distance between the best and second best matches
+        #pragma message("TODO: try robust standard deviation (MAD)")
+        double nn_dist_th, nn12_dist_th;
+        pointDescriptorMAD(pmatches_lr,nn_dist_th, nn12_dist_th);
+        nn_dist_th    = nn_dist_th   * Config::descThP();
+        nn12_dist_th  = nn12_dist_th * Config::descThP();
+        // ---------------------------------------------------------------------
+
+        // resort according to the queryIdx
+        sort( pmatches_lr.begin(), pmatches_lr.end(), sort_descriptor_by_queryIdx() );
+        if(Config::bestLRMatches())
+            sort( pmatches_rl.begin(), pmatches_rl.end(), sort_descriptor_by_queryIdx() );
+
+        // bucle around pmatches
+        int pt_idx = 0;
+        for( int i = 0; i < pmatches_lr.size(); i++ )
+        {
+            int lr_qdx, lr_tdx, rl_tdx;
+            lr_qdx = pmatches_lr[i][0].queryIdx;
+            lr_tdx = pmatches_lr[i][0].trainIdx;
+            if( Config::bestLRMatches() )
+            {
+                // check if they are mutual best matches
+                //int rl_qdx = pmatches_rl[lr_tdx][0].queryIdx;
+                rl_tdx = pmatches_rl[lr_tdx][0].trainIdx;
+            }
+            else
+                rl_tdx = lr_qdx;
+            // check if they are mutual best matches and the minimum distance
+            double dist_nn = pmatches_lr[i][0].distance;
+            double dist_12 = pmatches_lr[i][1].distance - pmatches_lr[i][0].distance;
+            if( lr_qdx == rl_tdx  && dist_12 > nn12_dist_th && dist_nn < nn_dist_th )
+            {
+                // check stereo epipolar constraint
+                if( fabsf( points_l[lr_qdx].pt.y-points_r[lr_tdx].pt.y) <= Config::maxDistEpip() )
+                {
+                    // check minimal disparity
+                    double disp_ = points_l[lr_qdx].pt.x - points_r[lr_tdx].pt.x;
+                    if( disp_ >= Config::minDisp() ){
+                        pdesc_l_.push_back( pdesc_l.row(lr_qdx) );
+                        //pdesc_r_.push_back( pdesc_r.row(lr_qdx) );
+                        PointFeature* point_;
+                        Vector2d pl_; pl_ << points_l[lr_qdx].pt.x, points_l[lr_qdx].pt.y;
+                        Vector3d P_;  P_ = cam->backProjection( pl_(0), pl_(1), disp_);
+                        stereo_pt.push_back( new PointFeature(pl_,disp_,P_,pt_idx) );
+                        pt_idx++;
+                    }
+                }
+            }
+
+
+        }
+        pdesc_l_.copyTo(pdesc_l);
+
+    }
+
+    // Line segments stereo matching
+    if( Config::hasLines() && !lines_l.empty() && !lines_r.empty() )
+    {
+        stereo_ls.clear();
+        Ptr<BinaryDescriptorMatcher> bdm = BinaryDescriptorMatcher::createBinaryDescriptorMatcher();
+        vector<vector<DMatch>> lmatches_lr, lmatches_rl;
+        Mat ldesc_l_;
+        // LR and RL matches
+        if( Config::bestLRMatches() )
+        {
+            if( Config::lrInParallel() )
+            {
+                auto match_l = async( launch::async, &StereoFrame::matchLineFeatures, this, bdm, ldesc_l, ldesc_r, ref(lmatches_lr) );
+                auto match_r = async( launch::async, &StereoFrame::matchLineFeatures, this, bdm, ldesc_r, ldesc_l, ref(lmatches_rl) );
+                match_l.wait();
+                match_r.wait();
+            }
+            else
+            {
+                bdm->knnMatch( ldesc_l,ldesc_r, lmatches_lr, 2);
+                bdm->knnMatch( ldesc_r,ldesc_l, lmatches_rl, 2);
+            }
+        }
+        else
+            bdm->knnMatch( ldesc_l,ldesc_r, lmatches_lr, 2);
+
+        // ---------------------------------------------------------------------
+        #pragma message("TODO: try MAD deviation")
+        #pragma message("TODO: try filtering lines with segment's length")
+        // sort matches by the distance between the best and second best matches
+        double nn_dist_th, nn12_dist_th;
+        lineDescriptorMAD( lmatches_lr, nn_dist_th, nn12_dist_th);
+        nn_dist_th    = nn_dist_th   * Config::descThL();
+        nn12_dist_th  = nn12_dist_th * Config::descThL();
+        // ---------------------------------------------------------------------
+
+        // bucle around pmatches
+        sort( lmatches_lr.begin(), lmatches_lr.end(), sort_descriptor_by_queryIdx() );
+        if( Config::bestLRMatches() )
+            sort( lmatches_rl.begin(), lmatches_rl.end(), sort_descriptor_by_queryIdx() );
+
+        int n_matches;
+        if( Config::bestLRMatches() )
+            n_matches = min(lmatches_lr.size(),lmatches_rl.size());
+        else
+            n_matches = lmatches_lr.size();
+
+        int ls_idx = 0;
+        for( int i = 0; i < n_matches; i++ )
+        {
+            // check if they are mutual best matches ( if bestLRMatches() )
+            int lr_qdx = lmatches_lr[i][0].queryIdx;
+            int lr_tdx = lmatches_lr[i][0].trainIdx;
+            int rl_tdx;
+            if( Config::bestLRMatches() )
+                rl_tdx = lmatches_rl[lr_tdx][0].trainIdx;
+            else
+                rl_tdx = lr_qdx;
+            // check if they are mutual best matches and the minimum distance
+            double dist_nn = lmatches_lr[i][0].distance;
+            double dist_12 = lmatches_lr[i][1].distance - lmatches_lr[i][0].distance;
+            double length  = lines_r[lr_tdx].lineLength;
+
+            if( lr_qdx == rl_tdx && dist_nn < nn_dist_th && dist_12 > nn12_dist_th && length > min_line_length_th)
+            {
+                // check stereo epipolar constraint
+                if( fabsf(lines_l[lr_qdx].angle) >= Config::minHorizAngle() && fabsf(lines_r[lr_tdx].angle) >= Config::minHorizAngle() && fabsf(angDiff(lines_l[lr_qdx].angle,lines_r[lr_tdx].angle)) < Config::maxAngleDiff() )
+                {
+                    // estimate the disparity of the endpoints
+                    Vector3d sp_r; sp_r << lines_r[lr_tdx].startPointX, lines_r[lr_tdx].startPointY, 1.0;
+                    Vector3d ep_r; ep_r << lines_r[lr_tdx].endPointX,   lines_r[lr_tdx].endPointY,   1.0;
+                    Vector3d le_r; le_r << sp_r.cross(ep_r);
+                    sp_r << - (le_r(2)+le_r(1)*lines_l[lr_qdx].startPointY )/le_r(0) , lines_l[lr_qdx].startPointY ,  1.0;
+                    ep_r << - (le_r(2)+le_r(1)*lines_l[lr_qdx].endPointY   )/le_r(0) , lines_l[lr_qdx].endPointY ,    1.0;
+                    double disp_s = lines_l[lr_qdx].startPointX - sp_r(0);
+                    double disp_e = lines_l[lr_qdx].endPointX   - ep_r(0);
+                    Vector3d sp_l; sp_l << lines_l[lr_qdx].startPointX, lines_l[lr_qdx].startPointY, 1.0;
+                    Vector3d ep_l; ep_l << lines_l[lr_qdx].endPointX,   lines_l[lr_qdx].endPointY,   1.0;
+                    Vector3d le_l; le_l << sp_l.cross(ep_l); le_l = le_l / sqrt( le_l(0)*le_l(0) + le_l(1)*le_l(1) );
+                    // check minimal disparity
+                    if( disp_s >= Config::minDisp() && disp_e >= Config::minDisp() && fabsf(le_r(0)) > Config::lineHorizTh() )
+                    {
+                        ldesc_l_.push_back( ldesc_l.row(lr_qdx) );
+                        // ldesc_r_.push_back( ldesc_r.row(jdx) );
+                        // cout << endl << le_l.transpose() << "\t\t" << lines_l[lr_qdx].angle * 180.0 / CV_PI << " " << lines_r[lr_tdx].angle * 180.0 / CV_PI ;
+                        Vector3d sP_; sP_ = cam->backProjection( sp_l(0), sp_l(1), disp_s);
+                        Vector3d eP_; eP_ = cam->backProjection( ep_l(0), ep_l(1), disp_e);
+                        stereo_ls.push_back( new LineFeature(Vector2d(sp_l(0),sp_l(1)),disp_s,sP_,Vector2d(ep_l(0),ep_l(1)),disp_e,eP_,le_l,ls_idx) );
+                        ls_idx++;
+                    }
+                }
+            }
+        }
+        ldesc_l_.copyTo(ldesc_l);
+
+    }
+
+    /*cout << endl;
+    cout << endl << "Detection   (ms): " << s1;
+    cout << endl << "Descriptors (ms): " << s2;
+    cout << endl << "Thresholds  (ms): " << s3;
+    cout << endl << "Re-sorting  (ms): " << s4;
+    cout << endl << "Loop        (ms): " << s5;
+    cout << endl << "Total       (ms): " << s1+s2+s3+s4+s5;*/
+
+}
+
+void StereoFrame::extractStereoFeatures()
+{
+
+    // Feature detection and description
+    vector<KeyPoint> points_l, points_r;
+    vector<KeyLine>  lines_l, lines_r;
+
+    double min_line_length_th = Config::minLineLength() * std::min( cam->getWidth(), cam->getHeight() );
+    if( Config::lrInParallel() )
+    {
+        auto detect_l = async(launch::async, &StereoFrame::detectFeatures, this, img_l, ref(points_l), ref(pdesc_l), ref(lines_l), ref(ldesc_l), min_line_length_th );
+        auto detect_r = async(launch::async, &StereoFrame::detectFeatures, this, img_r, ref(points_r), ref(pdesc_r), ref(lines_r), ref(ldesc_r), min_line_length_th );
+        detect_l.wait();
+        detect_r.wait();
+    }
+    else
+    {
+        detectFeatures(img_l,points_l,pdesc_l,lines_l,ldesc_l,min_line_length_th);
+        detectFeatures(img_r,points_r,pdesc_r,lines_r,ldesc_r,min_line_length_th);
+    }
+
+    // Points stereo matching
+    if( Config::hasPoints() && !(points_l.size()==0) && !(points_r.size()==0) )
+    {
+        BFMatcher* bfm = new BFMatcher( NORM_HAMMING, false );
+        vector<vector<DMatch>> pmatches_lr, pmatches_rl, pmatches_lr_;
+        Mat pdesc_l_;
+        stereo_pt.clear();
+        // LR and RL matches
+        if( Config::bestLRMatches() )
+        {
+            if( Config::lrInParallel() )
+            {
+                auto match_l = async( launch::async, &StereoFrame::matchPointFeatures, this, bfm, pdesc_l, pdesc_r, ref(pmatches_lr) );
+                auto match_r = async( launch::async, &StereoFrame::matchPointFeatures, this, bfm, pdesc_r, pdesc_l, ref(pmatches_rl) );
+                match_l.wait();
+                match_r.wait();
+            }
+            else
+            {
+                bfm->knnMatch( pdesc_l, pdesc_r, pmatches_lr, 2);
+                bfm->knnMatch( pdesc_r, pdesc_l, pmatches_rl, 2);
+            }
+        }
+        else
+            bfm->knnMatch( pdesc_l, pdesc_r, pmatches_lr, 2);
 
         // ---------------------------------------------------------------------
         // sort matches by the distance between the best and second best matches
@@ -112,14 +320,10 @@ void StereoFrame::extractStereoFeatures()
         nn12_dist_th  = nn12_dist_th * Config::descThP();
         // ---------------------------------------------------------------------
 
-        s3 = 1000.0 * clk.Tac(); clk.Tic();
-
         // resort according to the queryIdx
         sort( pmatches_lr.begin(), pmatches_lr.end(), sort_descriptor_by_queryIdx() );
         if(Config::bestLRMatches())
             sort( pmatches_rl.begin(), pmatches_rl.end(), sort_descriptor_by_queryIdx() );
-
-        s4 = 1000.0 * clk.Tac(); clk.Tic();
 
         // bucle around pmatches
         for( int i = 0; i < pmatches_lr.size(); i++ )
@@ -151,7 +355,7 @@ void StereoFrame::extractStereoFeatures()
                         PointFeature* point_;
                         Vector2d pl_; pl_ << points_l[lr_qdx].pt.x, points_l[lr_qdx].pt.y;
                         Vector3d P_;  P_ = cam->backProjection( pl_(0), pl_(1), disp_);
-                        stereo_pt.push_back( new PointFeature(pl_,disp_,P_) );
+                        stereo_pt.push_back( new PointFeature(pl_,disp_,P_,-1) );
                     }
                 }
             }
@@ -160,11 +364,7 @@ void StereoFrame::extractStereoFeatures()
         }
         pdesc_l_.copyTo(pdesc_l);
 
-        s5 = 1000.0 * clk.Tac(); clk.Tic();
-
     }
-
-    clk.Tic();
 
     // Line segments stereo matching
     if( Config::hasLines() && !lines_l.empty() && !lines_r.empty() )
@@ -192,8 +392,6 @@ void StereoFrame::extractStereoFeatures()
         else
             bdm->knnMatch( ldesc_l,ldesc_r, lmatches_lr, 2);
 
-        s2 += 1000.0 * clk.Tac(); clk.Tic();
-
         // ---------------------------------------------------------------------
         #pragma message("TODO: try MAD deviation")
         #pragma message("TODO: try filtering lines with segment's length")
@@ -204,14 +402,10 @@ void StereoFrame::extractStereoFeatures()
         nn12_dist_th  = nn12_dist_th * Config::descThL();
         // ---------------------------------------------------------------------
 
-        s3 += 1000.0 * clk.Tac(); clk.Tic();
-
         // bucle around pmatches
         sort( lmatches_lr.begin(), lmatches_lr.end(), sort_descriptor_by_queryIdx() );
         if( Config::bestLRMatches() )
             sort( lmatches_rl.begin(), lmatches_rl.end(), sort_descriptor_by_queryIdx() );
-
-        s4 += 1000.0 * clk.Tac(); clk.Tic();
 
         int n_matches;
         if( Config::bestLRMatches() )
@@ -257,44 +451,30 @@ void StereoFrame::extractStereoFeatures()
                         // cout << endl << le_l.transpose() << "\t\t" << lines_l[lr_qdx].angle * 180.0 / CV_PI << " " << lines_r[lr_tdx].angle * 180.0 / CV_PI ;
                         Vector3d sP_; sP_ = cam->backProjection( sp_l(0), sp_l(1), disp_s);
                         Vector3d eP_; eP_ = cam->backProjection( ep_l(0), ep_l(1), disp_e);
-                        stereo_ls.push_back( new LineFeature(Vector2d(sp_l(0),sp_l(1)),disp_s,sP_,Vector2d(ep_l(0),ep_l(1)),disp_e,eP_,le_l) );
+                        stereo_ls.push_back( new LineFeature(Vector2d(sp_l(0),sp_l(1)),disp_s,sP_,Vector2d(ep_l(0),ep_l(1)),disp_e,eP_,le_l,-1) );
                     }
                 }
             }
         }
         ldesc_l_.copyTo(ldesc_l);
 
-        s5 += 1000.0 * clk.Tac(); clk.Tic();
-
     }  
 
-    cout << endl;
+    /*cout << endl;
     cout << endl << "Detection   (ms): " << s1;
     cout << endl << "Descriptors (ms): " << s2;
     cout << endl << "Thresholds  (ms): " << s3;
     cout << endl << "Re-sorting  (ms): " << s4;
     cout << endl << "Loop        (ms): " << s5;
-    cout << endl << "Total       (ms): " << s1+s2+s3+s4+s5;
+    cout << endl << "Total       (ms): " << s1+s2+s3+s4+s5;*/
 
 }
 
 void StereoFrame::detectFeatures(Mat img, vector<KeyPoint> &points, Mat &pdesc, vector<KeyLine> &lines, Mat &ldesc, double min_line_length)
 {
 
-    // lsd parameters
-    LSDDetector::LSDOptions opts;
-    opts.refine       = Config::lsdRefine();
-    opts.scale        = Config::lsdScale();
-    opts.sigma_scale  = Config::lsdSigmaScale();
-    opts.quant        = Config::lsdQuant();
-    opts.ang_th       = Config::lsdAngTh();
-    opts.log_eps      = Config::lsdLogEps();
-    opts.density_th   = Config::lsdDensityTh();
-    opts.n_bins       = Config::lsdNBins();
-    opts.min_length   = min_line_length;
 
     // Declare objects
-    Ptr<LSDDetector>        lsd = LSDDetector::createLSDDetector();
     Ptr<BinaryDescriptor>   lbd = BinaryDescriptor::createBinaryDescriptor();
     Ptr<ORB>                orb = ORB::create( Config::orbNFeatures(), Config::orbScaleFactor(), Config::orbNLevels() );
 
@@ -305,8 +485,94 @@ void StereoFrame::detectFeatures(Mat img, vector<KeyPoint> &points, Mat &pdesc, 
     // Detect line features
     if( Config::hasLines() )
     {
+        if( Config::useEDLines() )
+        {
+            // EDLines parameters
+            BinaryDescriptor::EDLineParam opts;
+            opts.ksize               = 15;
+            opts.sigma               = 30.0;
+            opts.gradientThreshold   = 80;  //25
+            opts.anchorThreshold     = 8;
+            opts.scanIntervals       = 2;
+            opts.minLineLen          = 15;
+            opts.lineFitErrThreshold = 1.6;
+
+            BinaryDescriptor::EDLineDetector edl = BinaryDescriptor::EDLineDetector(opts);
+            BinaryDescriptor::LineChains lines_;
+
+            edl.EDline(img,lines_);
+            lines.clear();
+            int idx_aux = 0;
+            for(int i = 0; i < edl.lineEndpoints_.size(); i++)
+            {
+                KeyLine l_;
+                // estimate endpoints from LineChains
+                int s_idx = lines_.sId[i];
+                int e_idx = lines_.sId[i+1] - 1;
+                float sx  = edl.lineEndpoints_[i][0];
+                float sy  = edl.lineEndpoints_[i][1];
+                float ex  = edl.lineEndpoints_[i][2];
+                float ey  = edl.lineEndpoints_[i][3];
+                double line_length = sqrt( double( pow(ex-sx,2) + pow(ey-sy,2) ) );
+                // create keyline
+                if( line_length > min_line_length )
+                {
+                    //l_.angle       = atan2( ey-sy, ex-sx ) ;//* acos(-1.0) / 180.0;
+                    l_.angle       = edl.lineDirection_[i];
+                    l_.startPointX = sx;    l_.sPointInOctaveX = sx;
+                    l_.startPointY = sy;    l_.sPointInOctaveY = sy;
+                    l_.endPointX   = ex;    l_.ePointInOctaveX = ex;
+                    l_.endPointY   = ey;    l_.ePointInOctaveY = ey;
+                    l_.lineLength  = line_length;
+                    l_.octave      = 0;
+                    l_.class_id    = idx_aux;
+                    l_.numOfPixels = e_idx - s_idx;
+                    l_.response    = line_length / double(max( img_l.cols, img_l.rows ));
+                    lines.push_back(l_);
+                    idx_aux++;
+                }
+            }
+            lbd->compute( img, lines, ldesc);
+        }
+        else
+        {
+            Ptr<LSDDetector>        lsd = LSDDetector::createLSDDetector();
+            // lsd parameters
+            LSDDetector::LSDOptions opts;
+            opts.refine       = Config::lsdRefine();
+            opts.scale        = Config::lsdScale();
+            opts.sigma_scale  = Config::lsdSigmaScale();
+            opts.quant        = Config::lsdQuant();
+            opts.ang_th       = Config::lsdAngTh();
+            opts.log_eps      = Config::lsdLogEps();
+            opts.density_th   = Config::lsdDensityTh();
+            opts.n_bins       = Config::lsdNBins();
+            opts.min_length   = min_line_length;
+
+            lines.clear();
+            lsd->detect( img, lines, 1, 1, opts);
+            lbd->compute( img, lines, ldesc);
+        }
+
+        //cout << endl << lines.size() << endl;
+        /*cout << endl << ldesc << endl;
+        getchar();*/
+        /*cv::imshow( "olajsflkajsflakjsd", img);
+        cv::waitKey(0);*/
+        //cout << endl << "EDLine + LBD: " << 1000 * clock.Tac() << " ms \t " << lines.size() << " lines";
+        /*//clock.Tic();
+        lines.clear();
         lsd->detect( img, lines, 1, 1, opts);
+        for(int i = 0; i < lines.size(); i++)
+        {
+            KeyLine l_ = lines[i];
+            //cout << endl << l_.angle << " " << l_.numOfPixels << " " << l_.octave << " " << l_.class_id << " " << l_.response ;
+        }
         lbd->compute( img, lines, ldesc);
+        /*cout << endl << ldesc << endl;
+        getchar();*/
+        //cout << endl << "LSD + LBD   : " << 1000 * clock.Tac() << " ms \t " << lines.size() << " lines" << endl;*/
+
     }
 
 }
@@ -356,22 +622,26 @@ void StereoFrame::lineDescriptorMAD( const vector<vector<DMatch>> matches, doubl
     matches_12 = matches;
 
     // estimate the NN's distance standard deviation
-    //double nn_dist_median;
+    double nn_dist_median;
     sort( matches_nn.begin(), matches_nn.end(), compare_descriptor_by_NN_dist() );
     nn_mad = matches_nn[int(matches_nn.size()/2)][0].distance;
-
     /*for( int j = 0; j < matches_nn.size(); j++)
         matches_nn[j][0].distance = fabsf( matches_nn[j][0].distance - nn_dist_median );
     sort( matches_nn.begin(), matches_nn.end(), compare_descriptor_by_NN_dist() );
     nn_mad = 1.4826 * matches_nn[int(matches_nn.size()/2)][0].distance;*/
 
     // estimate the NN's 12 distance standard deviation
-    //double nn12_dist_median;
+    double nn12_dist_median;
     sort( matches_12.begin(), matches_12.end(), compare_descriptor_by_NN12_dist() );
     nn12_mad = matches_12[int(matches_12.size()/2)][1].distance - matches_12[int(matches_12.size()/2)][0].distance;
     /*for( int j = 0; j < matches_12.size(); j++)
         matches_12[j][0].distance = fabsf( matches_12[j][1].distance - matches_12[j][0].distance - nn_dist_median );
     sort( matches_12.begin(), matches_12.end(), compare_descriptor_by_NN_dist() );
-    nn12_mad = matches_12[int(matches_12.size()/2)][0].distance * 1.4826 ;*/
+    nn12_mad = matches_12[int(matches_12.size()/2)][0].distance / 1.4826 ;*/
+
+    nn_mad   = 9999999.9;
+    nn12_mad = -1.0;
+
+}
 
 }

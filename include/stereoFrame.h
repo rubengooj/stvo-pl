@@ -52,6 +52,8 @@ using namespace Eigen;
 typedef Matrix<double,6,6> Matrix6d;
 typedef Matrix<double,6,1> Vector6d;
 
+namespace StVO{
+
 class StereoFrame
 {
 public:
@@ -62,6 +64,7 @@ public:
     ~StereoFrame();
 
     void extractStereoFeatures();
+    void extractInitialStereoFeatures();
 
 
 //private:
@@ -88,3 +91,5 @@ public:
     PinholeStereoCamera* cam;
 
 };
+
+}
