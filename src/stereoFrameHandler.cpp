@@ -107,7 +107,8 @@ void StereoFrameHandler::f2fTracking()
         // nn_dist_th    = nn_dist_th   * Config::descThP();
         // nn12_dist_th  = nn12_dist_th * Config::descThP();
         double nn_dist_th, nn12_dist_th;
-        nn12_dist_th  = Config::minRatio12P();
+        nn12_dist_th   = Config::minRatio12P();
+        double dispTh  = Config::maxF2FDisp() * cam->getWidth();
 
         // resort according to the queryIdx
         sort( pmatches_12.begin(), pmatches_12.end(), sort_descriptor_by_queryIdx() );
@@ -128,12 +129,10 @@ void StereoFrameHandler::f2fTracking()
             // check if they are mutual best matches and the minimum distance
             double dist_nn = pmatches_12[i][0].distance;
             double dist_12 = pmatches_12[i][0].distance / pmatches_12[i][1].distance;
-
+            // check the f2f max disparity condition
             double dispL   = fabsf( curr_frame->stereo_pt[lr_tdx]->pl(0) - prev_frame->stereo_pt[lr_qdx]->pl(0) );
             double dispR   = fabsf( curr_frame->stereo_pt[lr_tdx]->pl(0) - curr_frame->stereo_pt[lr_tdx]->disp
                                     - ( prev_frame->stereo_pt[lr_qdx]->pl(0) - prev_frame->stereo_pt[lr_qdx]->disp ) );
-            double dispTh  = Config::maxF2FDisp();
-
             if( lr_qdx == rl_tdx  && dist_12 > nn12_dist_th && dispL <= dispTh && dispR <= dispTh )// && dist_nn < nn_dist_th )
             {
                 PointFeature* point_ = prev_frame->stereo_pt[lr_qdx];

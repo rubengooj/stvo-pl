@@ -7,7 +7,6 @@ class Config
 public:
 
     Config();
-    Config(double img_width, double img_height);
     ~Config();
 
     static Config& getInstance();

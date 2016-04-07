@@ -59,7 +59,6 @@ void StereoFrame::extractInitialStereoFeatures()
     // Feature detection and description
     vector<KeyPoint> points_l, points_r;
     vector<KeyLine>  lines_l, lines_r;
-
     double min_line_length_th = Config::minLineLength() * std::min( cam->getWidth(), cam->getHeight() );
     if( Config::lrInParallel() )
     {
@@ -268,8 +267,7 @@ void StereoFrame::extractStereoFeatures()
     // Feature detection and description
     vector<KeyPoint> points_l, points_r;
     vector<KeyLine>  lines_l, lines_r;
-
-    double min_line_length_th = Config::minLineLength() ;
+    double min_line_length_th = Config::minLineLength() * std::min( cam->getWidth(), cam->getHeight() ) ;
     if( Config::lrInParallel() )
     {
         auto detect_l = async(launch::async, &StereoFrame::detectFeatures, this, img_l, ref(points_l), ref(pdesc_l), ref(lines_l), ref(ldesc_l), min_line_length_th );
