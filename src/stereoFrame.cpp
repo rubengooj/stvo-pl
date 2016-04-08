@@ -1,10 +1,4 @@
 #include <stereoFrame.h>
-#include <future>
-#include <mrpt/utils/CTicTac.h>
-
-#include <opencv2/line_descriptor.hpp>
-#include <opencv2/line_descriptor/descriptor.hpp>
-
 
 namespace StVO{
 

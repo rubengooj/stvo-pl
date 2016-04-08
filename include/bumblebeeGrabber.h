@@ -34,12 +34,6 @@ using namespace mrpt;
 using namespace mrpt::hwdrivers;
 using namespace mrpt::obs;
 using namespace mrpt::utils;
-//using namespace mrpt::gui;
-//using namespace mrpt::poses;
-//using namespace mrpt::math;
-//using namespace mrpt::opengl;
-
-
 using namespace Eigen;
 using namespace cv;
 

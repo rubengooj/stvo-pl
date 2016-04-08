@@ -19,27 +19,6 @@
 **																			**
 *****************************************************************************/
 
-//using namespace std;
-//#include <mrpt/opengl.h>
-//#include <mrpt/gui.h>
-//#include <mrpt/utils/CConfigFile.h>
-//#include <mrpt/utils/CConfigFileBase.h>
-//using namespace mrpt;
-//using namespace mrpt::gui;
-//using namespace mrpt::poses;
-//using namespace mrpt::utils;
-//using namespace mrpt::math;
-//using namespace mrpt::opengl;
-//#include <opencv/cv.h>
-//#include <opencv2/features2d/features2d.hpp>
-//#include <opencv2/line_descriptor.hpp>
-//using namespace cv;
-//using namespace cv::line_descriptor;
-//#include <eigen3/Eigen/Core>
-//using namespace Eigen;
-//#include <stereoFrame.h>
-//#include <pinholeStereoCamera.h>
-
 #pragma once
 #include <stereoFrame.h>
 #include <stereoFeatures.h>

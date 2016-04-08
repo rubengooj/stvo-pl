@@ -20,11 +20,12 @@
 *****************************************************************************/
 #pragma once
 
+#include <future>
 #include <thread>
 #include <time.h>
 using namespace std;
 
-#include <mrpt/opengl.h>
+/*#include <mrpt/opengl.h>
 #include <mrpt/gui.h>
 #include <mrpt/utils/CConfigFile.h>
 #include <mrpt/utils/CConfigFileBase.h>
@@ -33,11 +34,12 @@ using namespace mrpt::gui;
 using namespace mrpt::poses;
 using namespace mrpt::utils;
 using namespace mrpt::math;
-using namespace mrpt::opengl;
+using namespace mrpt::opengl;*/
 
 #include <opencv/cv.h>
 #include <opencv2/features2d/features2d.hpp>
 #include <opencv2/line_descriptor.hpp>
+#include <opencv2/line_descriptor/descriptor.hpp>
 using namespace cv;
 using namespace cv::line_descriptor;
 

@@ -1,5 +1,4 @@
 #include <stereoFrameHandler.h>
-#include <future>
 
 namespace StVO{
 

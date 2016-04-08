@@ -46,7 +46,7 @@ Config::Config()
     edl_min_line_len = 15;
     edl_fit_err_th   = 1.6;
 
-    min_line_length  = 0.025; // relative to img size
+    min_line_length  = 0.015; // relative to img size
     min_horiz_angle  = 5.0;
     max_angle_diff   = 10.0;
     max_f2f_ang_diff = 10.0;
@@ -69,7 +69,7 @@ Config::Config()
     min_error_change = 0.0000001;
     inlier_k         = 2.0;
     sigma_px         = 1.0;
-    max_optim_error  = 999999.0;
+    max_optim_error  = 10.0;
 
 }
 

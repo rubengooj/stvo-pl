@@ -22,17 +22,6 @@
 
 using namespace std;
 
-#include <mrpt/opengl.h>
-#include <mrpt/gui.h>
-#include <mrpt/utils/CConfigFile.h>
-#include <mrpt/utils/CConfigFileBase.h>
-using namespace mrpt;
-using namespace mrpt::gui;
-using namespace mrpt::poses;
-using namespace mrpt::utils;
-using namespace mrpt::math;
-using namespace mrpt::opengl;
-
 #include <opencv/cv.h>
 #include <opencv2/features2d/features2d.hpp>
 #include <opencv2/line_descriptor.hpp>
@@ -51,7 +40,7 @@ private:
     const double        fx, fy;
     const double        cx, cy;
     const double        b;
-    Matrix3d            K, Kinv;
+    Matrix3d            K;
     bool                dist;
     Matrix<double,5,1>  d;
     Mat                 Kcv, Dcv;
@@ -74,15 +63,14 @@ public:
     Vector2d nonHomogeneous( Vector3d x);
 
     // Getters
-    inline const int getWidth()         const { return width; };
-    inline const int getHeight()        const { return height; };
-    inline const Matrix3d&    getK()    const { return K; };
-    inline const Matrix3d&    getKinv() const { return Kinv; };
-    inline const double       getB()    const { return b; };
-    inline const Matrix<double,5,1> getD()    const { return d; };
-    inline const double getFx()    const { return fx; };
-    inline const double getCx()    const { return cx; };
-    inline const double getCy()    const { return cy; };
+    inline const int getWidth()             const { return width; };
+    inline const int getHeight()            const { return height; };
+    inline const Matrix3d&    getK()        const { return K; };
+    inline const double       getB()        const { return b; };
+    inline const Matrix<double,5,1> getD()  const { return d; };
+    inline const double getFx()             const { return fx; };
+    inline const double getCx()             const { return cx; };
+    inline const double getCy()             const { return cy; };
 
 };
 

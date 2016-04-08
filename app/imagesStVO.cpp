@@ -19,17 +19,19 @@
 **																			**
 *****************************************************************************/
 
+#ifdef HAS_MRPT
+#include <sceneRepresentation.h>
+#include <mrpt/utils/CTicTac.h>
+#endif
+
 #include <stereoFrame.h>
 #include <stereoFrameHandler.h>
-#include <sceneRepresentation.h>
-
 #include <ctime>
 #include <boost/fusion/include/vector.hpp>
 #include <boost/fusion/include/at_c.hpp>
 #include <boost/filesystem.hpp>
 #include "yaml-cpp/yaml.h"
 
-#include <mrpt/utils/CTicTac.h>
 
 using namespace StVO;
 
@@ -148,16 +150,19 @@ int main(int argc, char **argv)
     }
 
     // create scene
-    sceneRepresentation scene("scene_config.ini");
     Matrix4d Tcw, Tfw = Matrix4d::Identity(), Tfw_prev = Matrix4d::Identity(), T_inc;
     Vector6d cov_eig;
     Matrix6d cov;
     Tcw = Matrix4d::Identity();
+    #ifdef HAS_MRPT
+    sceneRepresentation scene("scene_config.ini");
     scene.initializeScene(Tfw);
+    mrpt::utils::CTicTac clock;
+    #endif
 
     // initialize and run PL-StVO
-    mrpt::utils::CTicTac clock;
     int frame_counter = 0;
+    double t1;
     StereoFrameHandler* StVO = new StereoFrameHandler(cam_pin);
     for (std::map<std::string, std::string>::iterator it_l = sorted_imgs_l.begin(), it_r = sorted_imgs_r.begin();
          it_l != sorted_imgs_l.end(), it_r != sorted_imgs_r.end(); ++it_l, ++it_r, frame_counter++)
@@ -175,10 +180,14 @@ int main(int argc, char **argv)
         else
         {
             // PL-StVO
+            #ifdef HAS_MRPT
             clock.Tic();
+            #endif
             StVO->insertStereoPair( img_l, img_r, frame_counter, T_inc );
             StVO->optimizePose();
-            double t1 = 1000 * clock.Tac(); //ms
+            #ifdef HAS_MRPT
+            t1 = 1000 * clock.Tac(); //ms
+            #endif
 
             // acces the pose
             T_inc   = StVO->curr_frame->DT;
@@ -186,11 +195,13 @@ int main(int argc, char **argv)
             cov_eig = StVO->curr_frame->DT_cov_eig;
 
             // update scene
+            #ifdef HAS_MRPT
             scene.setText(frame_counter,t1,StVO->n_inliers_pt,StVO->matched_pt.size(),StVO->n_inliers_ls,StVO->matched_ls.size());
             scene.setCov( cov );
             scene.setPose( T_inc );
             scene.setImage( img_path_l.string() );
             scene.updateScene();
+            #endif
 
             // console output
             cout.setf(ios::fixed,ios::floatfield); cout.precision(8);

@@ -28,8 +28,7 @@ PinholeStereoCamera::PinholeStereoCamera( int width_, int height_, double fx_, d
     d   << d0, d1, d2, d3, d4;
     Kcv  = ( Mat_<float>(3,3) << fx, 0.0, cx, 0.0, fy, cy, 0.0, 0.0, 1.0 );
     Dcv  = ( Mat_<float>(1,5) << d(0), d(1), d(2), d(3), d(4) );
-    K   << fx, 0.0, cx, 0.0, fy, cy, 0.0, 0.0, 1.0;
-    Kinv = K.inverse();
+    K    << fx, 0.0, cx, 0.0, fy, cy, 0.0, 0.0, 1.0;
     // initialize undistort rectify map OpenCV
     initUndistortRectifyMap( Kcv, Dcv, cv::Mat_<double>::eye(3,3), Kcv, cv::Size(width,height), CV_16SC2, undistmap1, undistmap2 );
 }
