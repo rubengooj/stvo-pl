@@ -19,9 +19,11 @@
 **																			**
 *****************************************************************************/
 
-#include <kinematics.h>
+#include <auxiliar.h>
 
 #define PI std::acos(-1.0)
+
+/* Kinematics functions */
 
 Matrix4d inverse_transformation(Matrix4d T){
     Matrix4d T_inv = Matrix4d::Identity();
@@ -191,7 +193,7 @@ bool is_nan(const MatrixXd x){
     //bool aux = false;   // why it does not work with returns?
     for(unsigned int i = 0; i < x.rows(); i++){
         for(unsigned int j = 0; j < x.cols(); j++){
-            if(isnan(x(i,j)))
+            if(std::isnan(x(i,j)))
                 return true;
         }
     }
@@ -216,19 +218,35 @@ double angDiff_d(double alpha, double beta){
     return theta;
 }
 
+/* Auxiliar functions and structs for vectors */
+
+double vector_stdv_mad( VectorXf residues)
+{
+    // Return the standard deviation of vector with MAD estimation
+    int n_samples = residues.size();
+    sort( residues.derived().data(),residues.derived().data()+residues.size());
+    double median = residues( n_samples/2 );
+    residues << ( residues - VectorXf::Constant(n_samples,median) ).cwiseAbs();
+    sort(residues.derived().data(),residues.derived().data()+residues.size());
+    double MAD = residues( n_samples/2 );
+    return 1.4826 * MAD;
+}
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+double vector_stdv_mad( vector<double> residues)
+{
+    if( residues.size() != 0 )
+    {
+        // Return the standard deviation of vector with MAD estimation
+        int n_samples = residues.size();
+        sort( residues.begin(),residues.end() );
+        double median = residues[ n_samples/2 ];
+        for( int i = 0; i < n_samples; i++)
+            residues[i] = fabsf( residues[i] - median );
+        sort( residues.begin(),residues.end() );
+        double MAD = residues[ n_samples/2 ];
+        return 1.4826 * MAD;
+    }
+    else
+        return 0.0;
+}

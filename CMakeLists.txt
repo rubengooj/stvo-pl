@@ -21,7 +21,7 @@ SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x -O3 -mtune=native -march=nati
 
 # MRPT library (optional, only with representation purposes)
 if(HAS_MRPT)
-find_package(MRPT REQUIRED base opengl gui)
+find_package(MRPT REQUIRED base opengl gui hwdrivers)
 set(MRPT_DONT_USE_DBG_LIBS 1) #use release libraries for linking even if "Debug" CMake build
 endif(HAS_MRPT)
 
@@ -54,22 +54,23 @@ list(APPEND LINK_LIBS
 
 # Set source files (TODO: IT WILL DEPEND ON HAS_MRPT)
 list(APPEND SOURCEFILES
-  #src/bumblebeeGrabber.cpp
+  
   #src/imageGrabber.cpp
   #src/kittiEvaluate.cpp
   #src/evaluate_odometry.cpp
   #src/matrix.cpp
   #src/plSVO_mrpt.cpp
   src/sceneRepresentation.cpp
-  src/kinematics.cpp
+  src/auxiliar.cpp
+  src/bumblebeeGrabber.cpp
   #--------------------------- new files
-  src/stereoVO.cpp
+  #src/stereoVO.cpp
   src/config.cpp
   src/pinholeStereoCamera.cpp
   src/stereoFeatures.cpp
   src/stereoFrame.cpp
   src/stereoFrameHandler.cpp
-  src/stereoCorrespondences.cpp
+  #src/stereoCorrespondences.cpp
 )
 
 # List all files (headers) contained by StVO-PL library
@@ -93,6 +94,9 @@ target_link_libraries( imagesSVO stvo )
 
 add_executable       ( imagesStVO app/imagesStVO.cpp )
 target_link_libraries( imagesStVO stvo )
+
+add_executable       ( bbStVO app/bbStVO.cpp )
+target_link_libraries( bbStVO stvo )
 
 #if(HAS_MRPT)
 #add_executable       ( simulatedSVO  	    src/simulatedSVO.cpp )
