@@ -21,7 +21,7 @@ LineFeature::LineFeature( Vector2d spl_, double sdisp_, Vector3d sP_,
 
 LineFeature::LineFeature( Vector2d spl_, double sdisp_, Vector3d sP_,
                           Vector2d epl_, double edisp_, Vector3d eP_,
-                          Vector3d le_, Vector3d le_obs_) :
+                          Vector3d le_, Vector3d le_obs_ ) :
     spl(spl_), sdisp(sdisp_), sP(sP_), epl(epl_), edisp(edisp_), eP(eP_), le(le_), le_obs(le_obs_), inlier(true)
 {}
 
@@ -30,5 +30,12 @@ LineFeature::LineFeature( Vector2d spl_, double sdisp_, Vector3d sP_,
                           Vector3d le_,  int    idx_) :
     spl(spl_), sdisp(sdisp_), sP(sP_), epl(epl_), edisp(edisp_), eP(eP_), le(le_), inlier(true), idx(idx_)
 {}
+
+LineFeature::LineFeature( Vector2d spl_, double sdisp_, Vector3d sP_,
+                          Vector2d epl_, double edisp_, Vector3d eP_,
+                          Vector3d le_,  double angle_, int    idx_) :
+    spl(spl_), sdisp(sdisp_), sP(sP_), epl(epl_), edisp(edisp_), eP(eP_), le(le_), inlier(true), idx(idx_), angle(angle_)
+{}
+
 
 }

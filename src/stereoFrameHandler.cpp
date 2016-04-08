@@ -173,7 +173,12 @@ void StereoFrameHandler::f2fTracking()
             //double dist_nn = lmatches_12[i][0].distance;
             double dist_12 = lmatches_12[i][1].distance - lmatches_12[i][0].distance;
 
-            if( lr_qdx == rl_tdx  && dist_12 > nn12_dist_th )
+            // f2f angle diff and flow
+            double a1 = prev_frame->stereo_ls[lr_qdx]->angle;
+            double a2 = curr_frame->stereo_ls[lr_tdx]->angle;
+            Vector2d x1 = (prev_frame->stereo_ls[lr_qdx]->spl + prev_frame->stereo_ls[lr_qdx]->epl);
+            Vector2d x2 = (curr_frame->stereo_ls[lr_tdx]->spl + curr_frame->stereo_ls[lr_tdx]->epl);
+            if( lr_qdx == rl_tdx  && dist_12 > nn12_dist_th && angDiff(a1,a2) < Config::maxF2FAngDiff() && (x2-x1).norm() < 2.0 * Config::f2fFlowTh() )
             {
                 #pragma message("TODO: check f2f consistency")
                 LineFeature* line_ = prev_frame->stereo_ls[lr_qdx];

@@ -67,7 +67,7 @@ public:
     void optimizePose();
     void updateFrame();
 
-    void currFrameIsKF();   // TODO: set as prev_keyframe and reset features' idx
+    void currFrameIsKF();
     void checkKFCommonCorrespondences(double p_th, double l_th);
     cv::Mat checkKFCommonCorrespondencesPlot(double p_th, double l_th);
 

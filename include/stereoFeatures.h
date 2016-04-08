@@ -34,6 +34,11 @@ public:
                  Vector2d epl_, double edisp_, Vector3d eP_,
                  Vector3d le_,  int idx_);
     LineFeature( Vector2d spl_, double sdisp_, Vector3d sP_,
+                 Vector2d epl_, double edisp_, Vector3d eP_,
+                 Vector3d le_,  double angle_, int idx_);
+
+
+    LineFeature( Vector2d spl_, double sdisp_, Vector3d sP_,
                  Vector2d epl_, double edisp_, Vector3d eP_, Vector3d le_);
     LineFeature( Vector2d spl_, double sdisp_, Vector3d sP_,
                  Vector2d epl_, double edisp_, Vector3d eP_,
@@ -42,10 +47,11 @@ public:
 
     int idx;
     Vector2d spl,epl, spl_obs, epl_obs;
-    double   sdisp, edisp;
+    double   sdisp, edisp, angle;
     Vector3d sP,eP;
     Vector3d le, le_obs;
     bool inlier;
+
 
 private:
     // include jacobians & uncertainty

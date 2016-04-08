@@ -146,11 +146,11 @@ void StereoFrame::extractInitialStereoFeatures()
             bdm->knnMatch( ldesc_l,ldesc_r, lmatches_lr, 2);
 
         // // sort matches by the distance between the best and second best matches
-        double nn_dist_th, nn12_dist_th;
-        lineDescriptorMAD(lmatches_lr,nn_dist_th, nn12_dist_th);
         // nn_dist_th    = nn_dist_th   * Config::descThL();
-        nn12_dist_th  = nn12_dist_th * Config::descThL();
         //double nn12_dist_th  = Config::minRatio12L();
+        double nn_dist_th, nn12_dist_th;
+        lineDescriptorMAD(lmatches_lr,nn_dist_th, nn12_dist_th);        
+        nn12_dist_th  = nn12_dist_th * Config::descThL();        
 
         // bucle around pmatches
         sort( lmatches_lr.begin(), lmatches_lr.end(), sort_descriptor_by_queryIdx() );
@@ -203,7 +203,8 @@ void StereoFrame::extractInitialStereoFeatures()
                         // cout << endl << le_l.transpose() << "\t\t" << lines_l[lr_qdx].angle * 180.0 / CV_PI << " " << lines_r[lr_tdx].angle * 180.0 / CV_PI ;
                         Vector3d sP_; sP_ = cam->backProjection( sp_l(0), sp_l(1), disp_s);
                         Vector3d eP_; eP_ = cam->backProjection( ep_l(0), ep_l(1), disp_e);
-                        stereo_ls.push_back( new LineFeature(Vector2d(sp_l(0),sp_l(1)),disp_s,sP_,Vector2d(ep_l(0),ep_l(1)),disp_e,eP_,le_l,ls_idx) );
+                        double angle_l = lines_l[lr_qdx].angle;
+                        stereo_ls.push_back( new LineFeature(Vector2d(sp_l(0),sp_l(1)),disp_s,sP_,Vector2d(ep_l(0),ep_l(1)),disp_e,eP_,le_l,angle_l,ls_idx) );
                         ls_idx++;
                     }
                 }
@@ -405,7 +406,8 @@ void StereoFrame::extractStereoFeatures()
                         // cout << endl << le_l.transpose() << "\t\t" << lines_l[lr_qdx].angle * 180.0 / CV_PI << " " << lines_r[lr_tdx].angle * 180.0 / CV_PI ;
                         Vector3d sP_; sP_ = cam->backProjection( sp_l(0), sp_l(1), disp_s);
                         Vector3d eP_; eP_ = cam->backProjection( ep_l(0), ep_l(1), disp_e);
-                        stereo_ls.push_back( new LineFeature(Vector2d(sp_l(0),sp_l(1)),disp_s,sP_,Vector2d(ep_l(0),ep_l(1)),disp_e,eP_,le_l,-1) );
+                        double angle_l = lines_l[lr_qdx].angle;
+                        stereo_ls.push_back( new LineFeature(Vector2d(sp_l(0),sp_l(1)),disp_s,sP_,Vector2d(ep_l(0),ep_l(1)),disp_e,eP_,le_l,angle_l,-1) );
                     }
                 }
             }
