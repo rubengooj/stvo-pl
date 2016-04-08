@@ -20,26 +20,22 @@
 *****************************************************************************/
 
 #include <opencv/cv.h>
-
+#include <string>
 #include <mrpt/opengl.h>
 #include <mrpt/gui.h>
 #include <mrpt/utils/CConfigFile.h>
 #include <mrpt/utils/CConfigFileBase.h>
 #include <mrpt/utils/CTicTac.h>
-//#include <mrpt/hwdrivers/include/mrpt/hwdrivers/CImageGrabber_FlyCapture2.h>
-//#include <mrpt/hwdrivers/include/mrpt/slam/CObservationStereoImages.h>
-//#include <mrpt/hwdrivers/CImageGrabber_FlyCapture2.h>
+#include <mrpt/hwdrivers/CImageGrabber_FlyCapture2.h>
 #include <mrpt/slam/CObservationStereoImages.h>
 #include <eigen3/Eigen/Core>
 
-
-
 using namespace mrpt;
-//using namespace mrpt::gui;
-//using namespace mrpt::hwdrivers;
-//using namespace mrpt::poses;
-//using namespace mrpt::obs;
+using namespace mrpt::hwdrivers;
+using namespace mrpt::obs;
 using namespace mrpt::utils;
+//using namespace mrpt::gui;
+//using namespace mrpt::poses;
 //using namespace mrpt::math;
 //using namespace mrpt::opengl;
 
@@ -52,7 +48,7 @@ class bumblebeeGrabber{
 public:
 
     bumblebeeGrabber();
-    bumblebeeGrabber(string configFile);
+    bumblebeeGrabber(int img_width, int img_height, string frame_rate);
     ~bumblebeeGrabber();
     void grabStereo(Mat &imgLeft, Mat &imgRight);
     void getCalib(Matrix3f &K, float &baseline);
@@ -60,7 +56,7 @@ public:
 
 private:
 
-    float f, cx, cy;
+    float fx, fy, cx, cy;
     Matrix3f K;
 
     TCaptureOptions_FlyCapture2 bbOptions;

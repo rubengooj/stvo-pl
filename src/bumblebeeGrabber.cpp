@@ -31,15 +31,15 @@ bumblebeeGrabber::bumblebeeGrabber(){
     bb = new CImageGrabber_FlyCapture2(bbOptions);
 }
 
-bumblebeeGrabber::bumblebeeGrabber(string configFile){
+bumblebeeGrabber::bumblebeeGrabber(int img_width, int img_height, string frame_rate){
 
-    CConfigFile config(configFile);
+    CConfigFile config(frame_rate);
     bbOptions.stereo_mode   = true;
     bbOptions.get_rectified = true;
-    bbOptions.rect_width    = config.read_uint64_t("BumblebeeGrabber","width",320);
-    bbOptions.rect_height   = config.read_uint64_t("BumblebeeGrabber","height",240);
-    bbOptions.videomode     = config.read_string("BumblebeeGrabber","videomode","VIDEOMODE_1024x768RGB");
-    bbOptions.framerate     = config.read_string("BumblebeeGrabber","framerate","FRAMERATE_20");
+    bbOptions.rect_width    = img_width;
+    bbOptions.rect_height   = img_height;
+    bbOptions.videomode     = "VIDEOMODE_1024x768RGB";
+    bbOptions.framerate     = frame_rate;
     bb = new CImageGrabber_FlyCapture2(bbOptions);
 
 }
@@ -56,9 +56,10 @@ void bumblebeeGrabber::grabStereo(Mat &imgLeft, Mat &imgRight){
 
 void bumblebeeGrabber::getCalib(Matrix3f &K, float &baseline){
     bb->getObservation(stereoObservation);
-    f   = stereoObservation.leftCamera.intrinsicParams(0,0);
+    fx  = stereoObservation.leftCamera.intrinsicParams(0,0);
+    fy  = stereoObservation.leftCamera.intrinsicParams(1,1);
     cx  = stereoObservation.leftCamera.intrinsicParams(0,2);
     cy  = stereoObservation.leftCamera.intrinsicParams(1,2);
     baseline = stereoObservation.rightCameraPose.x();
-    K  << f, 0, cx, 0, f, cy, 0, 0, 1;
+    K  << fx, 0, cx, 0, fy, cy, 0, 0, 1;
 }
