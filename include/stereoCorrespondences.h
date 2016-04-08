@@ -1,7 +1,0 @@
-class StereoCorrespondences
-{
-public:
-
-private:
-
-};
