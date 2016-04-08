@@ -6,41 +6,6 @@
 #include <opencv2/line_descriptor/descriptor.hpp>
 
 
-struct compare_descriptor_by_NN_dist
-{
-    inline bool operator()(const vector<DMatch>& a, const vector<DMatch>& b){
-        return ( a[0].distance < b[0].distance );
-    }
-};
-
-struct compare_descriptor_by_NN12_dist
-{
-    inline bool operator()(const vector<DMatch>& a, const vector<DMatch>& b){
-        return ( a[1].distance - a[0].distance > b[1].distance-b[0].distance );
-    }
-};
-
-struct compare_descriptor_by_NN12_ratio
-{
-    inline bool operator()(const vector<DMatch>& a, const vector<DMatch>& b){
-        return ( a[0].distance / a[1].distance > b[0].distance / b[1].distance );
-    }
-};
-
-struct sort_descriptor_by_queryIdx
-{
-    inline bool operator()(const vector<DMatch>& a, const vector<DMatch>& b){
-        return ( a[0].queryIdx < b[0].queryIdx );
-    }
-};
-
-struct sort_descriptor_by_trainIdx
-{
-    inline bool operator()(const vector<DMatch>& a, const vector<DMatch>& b){
-        return ( a[0].trainIdx < b[0].trainIdx );
-    }
-};
-
 namespace StVO{
 
 StereoFrame::StereoFrame(){}

@@ -47,7 +47,7 @@ using namespace Eigen;
 #include <config.h>
 #include <stereoFeatures.h>
 #include <pinholeStereoCamera.h>
-#include <kinematics.h>
+#include <auxiliar.h>
 
 typedef Matrix<double,6,6> Matrix6d;
 typedef Matrix<double,6,1> Vector6d;

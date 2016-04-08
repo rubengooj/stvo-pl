@@ -1,52 +1,11 @@
 #include <stereoFrameHandler.h>
 #include <future>
 
-#pragma message("TODO: introduce in the general class, with the rest of auxiliar functions")
-struct sort_descriptor_by_queryIdx
-{
-    inline bool operator()(const vector<DMatch>& a, const vector<DMatch>& b){
-        return ( a[0].queryIdx < b[0].queryIdx );
-    }
-};
-
-double vector_stdv_mad( VectorXf residues)
-{
-    // Return the standard deviation of vector with MAD estimation
-    int n_samples = residues.size();
-    sort( residues.derived().data(),residues.derived().data()+residues.size());
-    double median = residues( n_samples/2 );
-    residues << ( residues - VectorXf::Constant(n_samples,median) ).cwiseAbs();
-    sort(residues.derived().data(),residues.derived().data()+residues.size());
-    double MAD = residues( n_samples/2 );
-    return 1.4826 * MAD;
-}
-
-double vector_stdv_mad( vector<double> residues)
-{
-    if( residues.size() != 0 )
-    {
-        // Return the standard deviation of vector with MAD estimation
-        int n_samples = residues.size();
-        sort( residues.begin(),residues.end() );
-        double median = residues[ n_samples/2 ];
-        for( int i = 0; i < n_samples; i++)
-            residues[i] = fabsf( residues[i] - median );
-        sort( residues.begin(),residues.end() );
-        double MAD = residues[ n_samples/2 ];
-        return 1.4826 * MAD;
-    }
-    else
-        return 0.0;
-}
-
-
 namespace StVO{
 
 StereoFrameHandler::StereoFrameHandler( PinholeStereoCamera *cam_ ) : cam(cam_) {}
 
 StereoFrameHandler::~StereoFrameHandler(){}
-
-#pragma message("TODO: avoid passing the camera as argument")
 
 void StereoFrameHandler::initialize(const Mat &img_l_, const Mat &img_r_ , const int idx_)
 {
@@ -1035,7 +994,7 @@ void StereoFrameHandler::checkKFCommonCorrespondences(double p_th, double l_th)
         // nn_dist_th    = nn_dist_th   * Config::descThL();
         //double nn12_dist_th  = Config::minRatio12L();
         double nn_dist_th, nn12_dist_th;
-        lineDescriptorMAD(lmatches_lr,nn_dist_th, nn12_dist_th);
+        curr_frame->lineDescriptorMAD(lmatches_12,nn_dist_th, nn12_dist_th);
         nn12_dist_th  = nn12_dist_th * Config::descThL();
 
         // resort according to the queryIdx
@@ -1056,7 +1015,7 @@ void StereoFrameHandler::checkKFCommonCorrespondences(double p_th, double l_th)
             // check if they are mutual best matches and the minimum distance
             double dist_nn = lmatches_12[i][0].distance;
             double dist_12 = lmatches_12[i][1].distance - lmatches_12[i][0].distance;
-            if( lr_qdx == rl_tdx  && dist_12 > nn12_dist_th && dist_nn < nn_dist_th )
+            if( lr_qdx == rl_tdx  && dist_12 > nn12_dist_th )//&& dist_nn < nn_dist_th )
             {
                 Vector3d sP_ = DT.block(0,0,3,3) * prev_keyframe->stereo_ls[lr_qdx]->sP + DT.col(3).head(3);
                 Vector2d spl_proj = cam->projection( sP_ );
@@ -1127,14 +1086,12 @@ cv::Mat StereoFrameHandler::checkKFCommonCorrespondencesPlot(double p_th, double
         else
             bfm->knnMatch( pdesc_l1, pdesc_l2, pmatches_12, 2);
 
-        // ---------------------------------------------------------------------
-        // sort matches by the distance between the best and second best matches
-        #pragma message("TODO: try robust standard deviation (MAD)")
+        // // sort matches by the distance between the best and second best matches
+        // nn_dist_th    = nn_dist_th   * Config::descThL();
+        //double nn12_dist_th  = Config::minRatio12L();
         double nn_dist_th, nn12_dist_th;
-        curr_frame->pointDescriptorMAD( pmatches_12, nn_dist_th, nn12_dist_th );
-        nn_dist_th    = nn_dist_th   * Config::descThP();
+        curr_frame->pointDescriptorMAD(pmatches_12,nn_dist_th, nn12_dist_th);
         nn12_dist_th  = nn12_dist_th * Config::descThP();
-        // ---------------------------------------------------------------------
 
         // resort according to the queryIdx
         sort( pmatches_12.begin(), pmatches_12.end(), sort_descriptor_by_queryIdx() );
@@ -1207,14 +1164,12 @@ cv::Mat StereoFrameHandler::checkKFCommonCorrespondencesPlot(double p_th, double
         else
             bdm->knnMatch( ldesc_l1, ldesc_l2, lmatches_12, 2);
 
-        // ---------------------------------------------------------------------
-        // sort matches by the distance between the best and second best matches
-        #pragma message("TODO: try robust standard deviation (MAD)")
+        // // sort matches by the distance between the best and second best matches
+        // nn_dist_th    = nn_dist_th   * Config::descThL();
+        //double nn12_dist_th  = Config::minRatio12L();
         double nn_dist_th, nn12_dist_th;
-        curr_frame->pointDescriptorMAD( lmatches_12, nn_dist_th, nn12_dist_th );
-        nn_dist_th    = nn_dist_th   * Config::descThL();
+        curr_frame->lineDescriptorMAD(lmatches_12,nn_dist_th, nn12_dist_th);
         nn12_dist_th  = nn12_dist_th * Config::descThL();
-        // ---------------------------------------------------------------------
 
         // resort according to the queryIdx
         sort( lmatches_12.begin(), lmatches_12.end(), sort_descriptor_by_queryIdx() );
