@@ -15,8 +15,7 @@ Config::Config()
     scale_points_lines = true;
     use_lev_marquardt  = true;
     use_uncertainty    = false;
-    //motion_prior       = false;
-    //fund_matrix_filter = false;
+    motion_prior       = false;
 
     // points detection and matching
     orb_nfeatures    = 1200;
@@ -26,7 +25,6 @@ Config::Config()
     min_disp         = 1.0;
     min_ratio_12_p   = 0.1;
     max_f2f_disp     = 0.2;   // relative to img size
-    //desc_th_p        = 2.0;
 
     // lines detection and matching
     lsd_refine       = 2;   // 0 NONE - 1 STD - 2 ADV

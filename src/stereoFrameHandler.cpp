@@ -61,13 +61,9 @@ void StereoFrameHandler::f2fTracking()
         else
             bfm->knnMatch( pdesc_l1, pdesc_l2, pmatches_12, 2);
 
-        // // sort matches by the distance between the best and second best matches
-        // pointDescriptorMAD(pmatches_lr,nn_dist_th, nn12_dist_th);
-        // nn_dist_th    = nn_dist_th   * Config::descThP();
-        // nn12_dist_th  = nn12_dist_th * Config::descThP();
-        double nn_dist_th, nn12_dist_th;
-        nn12_dist_th   = Config::minRatio12P();
-        double dispTh  = Config::maxF2FDisp() * cam->getWidth();
+        // sort matches by the distance between the best and second best matches
+        double nn12_dist_th = Config::minRatio12P();
+        double dispTh       = Config::maxF2FDisp() * cam->getWidth();
 
         // resort according to the queryIdx
         sort( pmatches_12.begin(), pmatches_12.end(), sort_descriptor_by_queryIdx() );
@@ -92,7 +88,7 @@ void StereoFrameHandler::f2fTracking()
             double dispL   = fabsf( curr_frame->stereo_pt[lr_tdx]->pl(0) - prev_frame->stereo_pt[lr_qdx]->pl(0) );
             double dispR   = fabsf( curr_frame->stereo_pt[lr_tdx]->pl(0) - curr_frame->stereo_pt[lr_tdx]->disp
                                     - ( prev_frame->stereo_pt[lr_qdx]->pl(0) - prev_frame->stereo_pt[lr_qdx]->disp ) );
-            if( lr_qdx == rl_tdx  && dist_12 > nn12_dist_th && dispL <= dispTh && dispR <= dispTh )// && dist_nn < nn_dist_th )
+            if( lr_qdx == rl_tdx  && dist_12 > nn12_dist_th && dispL <= dispTh && dispR <= dispTh )
             {
                 PointFeature* point_ = prev_frame->stereo_pt[lr_qdx];
                 point_->pl_obs = curr_frame->stereo_pt[lr_tdx]->pl;
@@ -147,10 +143,9 @@ void StereoFrameHandler::f2fTracking()
         else
             bdm->knnMatch( ldesc_l1, ldesc_l2, lmatches_12, 2);
 
-        // // sort matches by the distance between the best and second best matches
+        // sort matches by the distance between the best and second best matches
         double nn_dist_th, nn12_dist_th;
         curr_frame->lineDescriptorMAD(lmatches_12,nn_dist_th, nn12_dist_th);
-        // nn_dist_th    = nn_dist_th   * Config::descThL();
         nn12_dist_th  = nn12_dist_th * Config::descThL();
 
         // resort according to the queryIdx
@@ -169,7 +164,6 @@ void StereoFrameHandler::f2fTracking()
             else
                 rl_tdx = lr_qdx;
             // check if they are mutual best matches and the minimum distance
-            //double dist_nn = lmatches_12[i][0].distance;
             double dist_12 = lmatches_12[i][1].distance - lmatches_12[i][0].distance;
 
             // f2f angle diff and flow
@@ -179,7 +173,6 @@ void StereoFrameHandler::f2fTracking()
             Vector2d x2 = (curr_frame->stereo_ls[lr_tdx]->spl + curr_frame->stereo_ls[lr_tdx]->epl);
             if( lr_qdx == rl_tdx  && dist_12 > nn12_dist_th && angDiff(a1,a2) < Config::maxF2FAngDiff() && (x2-x1).norm() < 2.0 * Config::f2fFlowTh() )
             {
-                #pragma message("TODO: check f2f consistency")
                 LineFeature* line_ = prev_frame->stereo_ls[lr_qdx];
                 line_->spl_obs = curr_frame->stereo_ls[lr_tdx]->spl;
                 line_->epl_obs = curr_frame->stereo_ls[lr_tdx]->epl;
@@ -240,6 +233,7 @@ void StereoFrameHandler::optimizePose()
     double   err;
 
     #pragma message("TODO: implement some logic to select the initial pose")
+    #pragma message("TODO: implement motion prior option")
     // set init pose    (depending on the values of DT_cov_eig)
     if( true )
     {
@@ -379,7 +373,6 @@ void StereoFrameHandler::levMarquardtOptimization(Matrix4d &DT, Matrix6d &DT_cov
 
 void StereoFrameHandler::removeOutliers(Matrix4d DT)
 {
-    //VectorXf residuals( n_inliers );
 
     vector<double> res_p, res_l;
 
@@ -390,7 +383,6 @@ void StereoFrameHandler::removeOutliers(Matrix4d DT)
         // projection error
         Vector3d P_ = DT.block(0,0,3,3) * (*it)->P + DT.col(3).head(3);
         Vector2d pl_proj = cam->projection( P_ );
-        //residuals(iter) = ( pl_proj - (*it)->pl_obs ).norm();
         res_p.push_back( ( pl_proj - (*it)->pl_obs ).norm() );
     }
 
@@ -406,7 +398,6 @@ void StereoFrameHandler::removeOutliers(Matrix4d DT)
         Vector2d err_li;
         err_li(0) = l_obs(0) * spl_proj(0) + l_obs(1) * spl_proj(1) + l_obs(2);
         err_li(1) = l_obs(0) * epl_proj(0) + l_obs(1) * epl_proj(1) + l_obs(2);
-        //residuals(iter) = err_li.norm();
         res_l.push_back( err_li.norm() );
     }
 
@@ -606,7 +597,7 @@ void StereoFrameHandler::optimizeFunctions_uncweighted(Matrix4d DT, Matrix6d &H,
     e   = 0.0;
 
     // assign cam parameters
-    double f     = cam->getFx();   // we assume fx == fy
+    double f     = cam->getFx();
     double cx    = cam->getCx();
     double cy    = cam->getCy();
     double sigma = Config::sigmaPx();
@@ -859,382 +850,6 @@ void StereoFrameHandler::optimizeFunctions_uncweighted(Matrix4d DT, Matrix6d &H,
     // normalize error
     e /= (N_l+N_p);
 
-
-}
-
-/*  slam functions  */
-
-void StereoFrameHandler::currFrameIsKF()
-{
-    // update KF
-    prev_keyframe = curr_frame;
-
-    // restart point indices
-    int idx_pt = 0;
-    for( vector<PointFeature*>::iterator it = prev_keyframe->stereo_pt.begin(); it!=prev_keyframe->stereo_pt.end(); it++)
-    {
-        (*it)->idx = idx_pt;
-        idx_pt++;
-    }
-    max_idx_pt = prev_keyframe->stereo_pt.size();
-    max_idx_pt_prev_kf = max_idx_pt;
-
-    // restart line indices
-    int idx_ls = 0;
-    for( vector<LineFeature*>::iterator it = prev_keyframe->stereo_ls.begin(); it!=prev_keyframe->stereo_ls.end(); it++)
-    {
-        (*it)->idx = idx_ls;
-        idx_ls++;
-    }
-    max_idx_ls = prev_keyframe->stereo_ls.size();
-    max_idx_ls_prev_kf = max_idx_ls;
-
-}
-
-void StereoFrameHandler::checkKFCommonCorrespondences(double p_th, double l_th)
-{
-
-    // estimates pose increment
-    Matrix4d DT = inverse_transformation( curr_frame->Tfw ) * prev_keyframe->Tfw;
-
-    // points f2f tracking
-    matched_pt.clear();
-    int common_pt = 0;
-    if( Config::hasPoints() && !(curr_frame->stereo_pt.size()==0) && !(prev_keyframe->stereo_pt.size()==0)  )
-    {
-        BFMatcher* bfm = new BFMatcher( NORM_HAMMING, false );    // cross-check
-        Mat pdesc_l1, pdesc_l2;
-        vector<vector<DMatch>> pmatches_12, pmatches_21;
-        // 12 and 21 matches
-        pdesc_l1 = prev_keyframe->pdesc_l;
-        pdesc_l2 = curr_frame->pdesc_l;
-        if( Config::bestLRMatches() )
-        {
-            if( Config::lrInParallel() )
-            {
-                auto match_l = async( launch::async, &StereoFrameHandler::matchPointFeatures, this, bfm, pdesc_l1, pdesc_l2, ref(pmatches_12) );
-                auto match_r = async( launch::async, &StereoFrameHandler::matchPointFeatures, this, bfm, pdesc_l2, pdesc_l1, ref(pmatches_21) );
-                match_l.wait();
-                match_r.wait();
-            }
-            else
-            {
-                bfm->knnMatch( pdesc_l1, pdesc_l2, pmatches_12, 2);
-                bfm->knnMatch( pdesc_l2, pdesc_l1, pmatches_21, 2);
-            }
-        }
-        else
-            bfm->knnMatch( pdesc_l1, pdesc_l2, pmatches_12, 2);
-
-        // // sort matches by the distance between the best and second best matches
-        // pointDescriptorMAD(pmatches_lr,nn_dist_th, nn12_dist_th);
-        // nn_dist_th    = nn_dist_th   * Config::descThP();
-        // nn12_dist_th  = nn12_dist_th * Config::descThP();
-        double nn_dist_th, nn12_dist_th;
-        nn12_dist_th  = Config::minRatio12P();
-
-        // resort according to the queryIdx
-        sort( pmatches_12.begin(), pmatches_12.end(), sort_descriptor_by_queryIdx() );
-        if( Config::bestLRMatches() )
-            sort( pmatches_21.begin(), pmatches_21.end(), sort_descriptor_by_queryIdx() );
-
-        // bucle around pmatches
-        for( int i = 0; i < pmatches_12.size(); i++ )
-        {
-            // check if they are mutual best matches
-            int lr_qdx = pmatches_12[i][0].queryIdx;
-            int lr_tdx = pmatches_12[i][0].trainIdx;
-            int rl_tdx;
-            if( Config::bestLRMatches() )
-                rl_tdx = pmatches_21[lr_tdx][0].trainIdx;
-            else
-                rl_tdx = lr_qdx;
-            // check if they are mutual best matches and the minimum distance
-            //double dist_nn = pmatches_12[i][0].distance;
-            double dist_12 = pmatches_12[i][0].distance / pmatches_12[i][1].distance;
-            if( lr_qdx == rl_tdx  && dist_12 > nn12_dist_th )//&& dist_nn < nn_dist_th )
-            {
-                // check epipolar constraint
-                Vector3d P_ = DT.block(0,0,3,3) * prev_keyframe->stereo_pt[lr_qdx]->P + DT.col(3).head(3);
-                Vector2d pl_proj = cam->projection( P_ );
-                double   error = ( pl_proj - curr_frame->stereo_pt[lr_tdx]->pl ).norm();
-                if( error < p_th )
-                    common_pt++;
-            }
-        }
-
-    }
-
-    // line segments f2f tracking
-    matched_ls.clear();
-    int common_ls = 0;
-    if( Config::hasLines() && !(curr_frame->stereo_ls.size()==0) && !(prev_keyframe->stereo_ls.size()==0)  )
-    {
-        Ptr<BinaryDescriptorMatcher> bdm = BinaryDescriptorMatcher::createBinaryDescriptorMatcher();
-        Mat ldesc_l1, ldesc_l2;
-        vector<vector<DMatch>> lmatches_12, lmatches_21;
-        // 12 and 21 matches
-        ldesc_l1 = prev_keyframe->ldesc_l;
-        ldesc_l2 = curr_frame->ldesc_l;
-        if( Config::bestLRMatches() )
-        {
-            if( Config::lrInParallel() )
-            {
-                auto match_l = async( launch::async, &StereoFrameHandler::matchLineFeatures, this, bdm, ldesc_l1, ldesc_l2, ref(lmatches_12) );
-                auto match_r = async( launch::async, &StereoFrameHandler::matchLineFeatures, this, bdm, ldesc_l2, ldesc_l1, ref(lmatches_21) );
-                match_l.wait();
-                match_r.wait();
-            }
-            else
-            {
-                bdm->knnMatch( ldesc_l1, ldesc_l2, lmatches_12, 2);
-                bdm->knnMatch( ldesc_l2, ldesc_l1, lmatches_21, 2);
-            }
-        }
-        else
-            bdm->knnMatch( ldesc_l1, ldesc_l2, lmatches_12, 2);
-
-        // // sort matches by the distance between the best and second best matches
-        // nn_dist_th    = nn_dist_th   * Config::descThL();
-        //double nn12_dist_th  = Config::minRatio12L();
-        double nn_dist_th, nn12_dist_th;
-        curr_frame->lineDescriptorMAD(lmatches_12,nn_dist_th, nn12_dist_th);
-        nn12_dist_th  = nn12_dist_th * Config::descThL();
-
-        // resort according to the queryIdx
-        sort( lmatches_12.begin(), lmatches_12.end(), sort_descriptor_by_queryIdx() );
-        if( Config::bestLRMatches() )
-            sort( lmatches_21.begin(), lmatches_21.end(), sort_descriptor_by_queryIdx() );
-        // bucle around lmatches
-        for( int i = 0; i < lmatches_12.size(); i++ )
-        {
-            // check if they are mutual best matches
-            int lr_qdx = lmatches_12[i][0].queryIdx;
-            int lr_tdx = lmatches_12[i][0].trainIdx;
-            int rl_tdx;
-            if( Config::bestLRMatches() )
-                rl_tdx = lmatches_21[lr_tdx][0].trainIdx;
-            else
-                rl_tdx = lr_qdx;
-            // check if they are mutual best matches and the minimum distance
-            double dist_nn = lmatches_12[i][0].distance;
-            double dist_12 = lmatches_12[i][1].distance - lmatches_12[i][0].distance;
-            if( lr_qdx == rl_tdx  && dist_12 > nn12_dist_th )//&& dist_nn < nn_dist_th )
-            {
-                Vector3d sP_ = DT.block(0,0,3,3) * prev_keyframe->stereo_ls[lr_qdx]->sP + DT.col(3).head(3);
-                Vector2d spl_proj = cam->projection( sP_ );
-                Vector3d eP_ = DT.block(0,0,3,3) * prev_keyframe->stereo_ls[lr_qdx]->eP + DT.col(3).head(3);
-                Vector2d epl_proj = cam->projection( eP_ );
-                Vector3d l_obs = prev_keyframe->stereo_ls[lr_qdx]->le;
-                // projection error
-                Vector2d err_ls;
-                err_ls(0) = l_obs(0) * spl_proj(0) + l_obs(1) * spl_proj(1) + l_obs(2);
-                err_ls(1) = l_obs(0) * epl_proj(0) + l_obs(1) * epl_proj(1) + l_obs(2);
-                if( err_ls.norm() < l_th )
-                {
-                    common_ls++;
-                }
-            }
-        }
-
-    }
-
-    cout << endl << "Common points: " << common_pt << " \t Common lines: " << common_ls << endl << endl;
-
-}
-
-cv::Mat StereoFrameHandler::checkKFCommonCorrespondencesPlot(double p_th, double l_th)
-{
-
-    // representation variables
-    int lowest = 100, highest = 255;
-    int range  = (highest-lowest) + 1 ;
-    unsigned int r, g, b; //the color of lines
-    int radius  = 3;
-    float thick = 1.5f;
-    cv::Mat img_1, img_2;
-
-    // convert images to color
-    cvtColor(prev_keyframe->img_l,img_1,CV_GRAY2BGR);
-    cvtColor(curr_frame->img_l,img_2,CV_GRAY2BGR);
-
-    // estimates pose increment
-    Matrix4d DT = inverse_transformation( curr_frame->Tfw ) * prev_keyframe->Tfw;
-
-    // points f2f tracking
-    matched_pt.clear();
-    int common_pt = 0;
-    if( Config::hasPoints() && !(curr_frame->stereo_pt.size()==0) && !(prev_keyframe->stereo_pt.size()==0)  )
-    {
-        BFMatcher* bfm = new BFMatcher( NORM_HAMMING, false );    // cross-check
-        Mat pdesc_l1, pdesc_l2;
-        vector<vector<DMatch>> pmatches_12, pmatches_21;
-        // 12 and 21 matches
-        pdesc_l1 = prev_keyframe->pdesc_l;
-        pdesc_l2 = curr_frame->pdesc_l;
-        if( Config::bestLRMatches() )
-        {
-            if( Config::lrInParallel() )
-            {
-                auto match_l = async( launch::async, &StereoFrameHandler::matchPointFeatures, this, bfm, pdesc_l1, pdesc_l2, ref(pmatches_12) );
-                auto match_r = async( launch::async, &StereoFrameHandler::matchPointFeatures, this, bfm, pdesc_l2, pdesc_l1, ref(pmatches_21) );
-                match_l.wait();
-                match_r.wait();
-            }
-            else
-            {
-                bfm->knnMatch( pdesc_l1, pdesc_l2, pmatches_12, 2);
-                bfm->knnMatch( pdesc_l2, pdesc_l1, pmatches_21, 2);
-            }
-        }
-        else
-            bfm->knnMatch( pdesc_l1, pdesc_l2, pmatches_12, 2);
-
-        // // sort matches by the distance between the best and second best matches
-        // nn_dist_th    = nn_dist_th   * Config::descThL();
-        //double nn12_dist_th  = Config::minRatio12L();
-        double nn_dist_th, nn12_dist_th;
-        curr_frame->pointDescriptorMAD(pmatches_12,nn_dist_th, nn12_dist_th);
-        nn12_dist_th  = nn12_dist_th * Config::descThP();
-
-        // resort according to the queryIdx
-        sort( pmatches_12.begin(), pmatches_12.end(), sort_descriptor_by_queryIdx() );
-        if( Config::bestLRMatches() )
-            sort( pmatches_21.begin(), pmatches_21.end(), sort_descriptor_by_queryIdx() );
-
-        // bucle around pmatches
-        for( int i = 0; i < pmatches_12.size(); i++ )
-        {
-            // check if they are mutual best matches
-            int lr_qdx = pmatches_12[i][0].queryIdx;
-            int lr_tdx = pmatches_12[i][0].trainIdx;
-            int rl_tdx;
-            if( Config::bestLRMatches() )
-                rl_tdx = pmatches_21[lr_tdx][0].trainIdx;
-            else
-                rl_tdx = lr_qdx;
-            // check if they are mutual best matches and the minimum distance
-            double dist_nn = pmatches_12[i][0].distance;
-            double dist_12 = pmatches_12[i][1].distance - pmatches_12[i][0].distance;
-            if( lr_qdx == rl_tdx  && dist_12 > nn12_dist_th && dist_nn < nn_dist_th )
-            {
-                // check epipolar constraint
-                Vector3d P_ = DT.block(0,0,3,3) * prev_keyframe->stereo_pt[lr_qdx]->P + DT.col(3).head(3);
-                Vector2d pl_proj = cam->projection( P_ );
-                double   error = ( pl_proj - curr_frame->stereo_pt[lr_tdx]->pl ).norm();
-                if( error < p_th )
-                {
-                    common_pt++;
-                    r = lowest+int(rand()%range);
-                    g = lowest+int(rand()%range);
-                    b = lowest+int(rand()%range);
-                    // first image
-                    cv::Point2f P(prev_keyframe->stereo_pt[lr_qdx]->pl(0),prev_keyframe->stereo_pt[lr_qdx]->pl(1));
-                    cv::circle(img_1, P, radius, Scalar(b,g,r), thick);
-                    // second image
-                    P = cv::Point2f(curr_frame->stereo_pt[lr_tdx]->pl(0),curr_frame->stereo_pt[lr_tdx]->pl(1));
-                    cv::circle(img_2, P, radius, Scalar(b,g,r), thick);
-                }
-            }
-        }
-    }
-
-    // line segments f2f tracking
-    matched_ls.clear();
-    int common_ls = 0;
-    if( Config::hasLines() && !(curr_frame->stereo_ls.size()==0) && !(prev_keyframe->stereo_ls.size()==0)  )
-    {
-        Ptr<BinaryDescriptorMatcher> bdm = BinaryDescriptorMatcher::createBinaryDescriptorMatcher();
-        Mat ldesc_l1, ldesc_l2;
-        vector<vector<DMatch>> lmatches_12, lmatches_21;
-        // 12 and 21 matches
-        ldesc_l1 = prev_keyframe->ldesc_l;
-        ldesc_l2 = curr_frame->ldesc_l;
-        if( Config::bestLRMatches() )
-        {
-            if( Config::lrInParallel() )
-            {
-                auto match_l = async( launch::async, &StereoFrameHandler::matchLineFeatures, this, bdm, ldesc_l1, ldesc_l2, ref(lmatches_12) );
-                auto match_r = async( launch::async, &StereoFrameHandler::matchLineFeatures, this, bdm, ldesc_l2, ldesc_l1, ref(lmatches_21) );
-                match_l.wait();
-                match_r.wait();
-            }
-            else
-            {
-                bdm->knnMatch( ldesc_l1, ldesc_l2, lmatches_12, 2);
-                bdm->knnMatch( ldesc_l2, ldesc_l1, lmatches_21, 2);
-            }
-        }
-        else
-            bdm->knnMatch( ldesc_l1, ldesc_l2, lmatches_12, 2);
-
-        // // sort matches by the distance between the best and second best matches
-        // nn_dist_th    = nn_dist_th   * Config::descThL();
-        //double nn12_dist_th  = Config::minRatio12L();
-        double nn_dist_th, nn12_dist_th;
-        curr_frame->lineDescriptorMAD(lmatches_12,nn_dist_th, nn12_dist_th);
-        nn12_dist_th  = nn12_dist_th * Config::descThL();
-
-        // resort according to the queryIdx
-        sort( lmatches_12.begin(), lmatches_12.end(), sort_descriptor_by_queryIdx() );
-        if( Config::bestLRMatches() )
-            sort( lmatches_21.begin(), lmatches_21.end(), sort_descriptor_by_queryIdx() );
-        // bucle around lmatches
-        for( int i = 0; i < lmatches_12.size(); i++ )
-        {
-            // check if they are mutual best matches
-            int lr_qdx = lmatches_12[i][0].queryIdx;
-            int lr_tdx = lmatches_12[i][0].trainIdx;
-            int rl_tdx;
-            if( Config::bestLRMatches() )
-                rl_tdx = lmatches_21[lr_tdx][0].trainIdx;
-            else
-                rl_tdx = lr_qdx;
-            // check if they are mutual best matches and the minimum distance
-            double dist_nn = lmatches_12[i][0].distance;
-            double dist_12 = lmatches_12[i][1].distance - lmatches_12[i][0].distance;
-            if( lr_qdx == rl_tdx  && dist_12 > nn12_dist_th && dist_nn < nn_dist_th )
-            {
-                Vector3d sP_ = DT.block(0,0,3,3) * prev_keyframe->stereo_ls[lr_qdx]->sP + DT.col(3).head(3);
-                Vector2d spl_proj = cam->projection( sP_ );
-                Vector3d eP_ = DT.block(0,0,3,3) * prev_keyframe->stereo_ls[lr_qdx]->eP + DT.col(3).head(3);
-                Vector2d epl_proj = cam->projection( eP_ );
-                Vector3d l_obs = prev_keyframe->stereo_ls[lr_qdx]->le;
-                // projection error
-                Vector2d err_ls;
-                err_ls(0) = l_obs(0) * spl_proj(0) + l_obs(1) * spl_proj(1) + l_obs(2);
-                err_ls(1) = l_obs(0) * epl_proj(0) + l_obs(1) * epl_proj(1) + l_obs(2);
-                if( err_ls.norm() < l_th )
-                {
-                    common_ls++;
-                    r = lowest+int(rand()%range);
-                    g = lowest+int(rand()%range);
-                    b = lowest+int(rand()%range);
-                    // first image
-                    cv::Point2f P(prev_keyframe->stereo_ls[lr_qdx]->spl(0),prev_keyframe->stereo_ls[lr_qdx]->spl(1));
-                    cv::Point2f Q(prev_keyframe->stereo_ls[lr_qdx]->epl(0),prev_keyframe->stereo_ls[lr_qdx]->epl(1));
-                    cv::line( img_1, P, Q, cv::Scalar(b,g,r), thick );
-                    // second image
-                    P = cv::Point2f(curr_frame->stereo_ls[lr_tdx]->spl(0),curr_frame->stereo_ls[lr_tdx]->spl(1));
-                    Q = cv::Point2f(curr_frame->stereo_ls[lr_tdx]->epl(0),curr_frame->stereo_ls[lr_tdx]->epl(1));
-                    cv::line( img_2, P, Q, cv::Scalar(b,g,r), thick );
-                }
-            }
-        }
-
-    }
-
-    // plot the two left images together
-    int rows = img_1.rows;
-    int cols = img_1.cols;
-    cv::Mat img_12(rows*2,cols,img_1.type());
-
-    img_1.copyTo( img_12( cv::Rect(0,rows,cols,rows) ) );
-    img_2.copyTo( img_12( cv::Rect(0,0,cols,rows)    ) );
-
-    cout << endl << "Common points: " << common_pt << " \t Common lines: " << common_ls << endl << endl;
-
-    return img_12;
 
 }
 

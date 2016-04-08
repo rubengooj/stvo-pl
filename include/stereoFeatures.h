@@ -20,9 +20,6 @@ public:
     Vector3d P;
     bool inlier;
 
-private:
-    // include jacobians & uncertainty
-
 };
 
 class LineFeature
@@ -51,10 +48,6 @@ public:
     Vector3d sP,eP;
     Vector3d le, le_obs;
     bool inlier;
-
-
-private:
-    // include jacobians & uncertainty
 
 };
 

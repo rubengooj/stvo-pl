@@ -25,17 +25,6 @@
 #include <time.h>
 using namespace std;
 
-/*#include <mrpt/opengl.h>
-#include <mrpt/gui.h>
-#include <mrpt/utils/CConfigFile.h>
-#include <mrpt/utils/CConfigFileBase.h>
-using namespace mrpt;
-using namespace mrpt::gui;
-using namespace mrpt::poses;
-using namespace mrpt::utils;
-using namespace mrpt::math;
-using namespace mrpt::opengl;*/
-
 #include <opencv/cv.h>
 #include <opencv2/features2d/features2d.hpp>
 #include <opencv2/line_descriptor.hpp>
@@ -67,10 +56,6 @@ public:
 
     void extractStereoFeatures();
     void extractInitialStereoFeatures();
-
-
-//private:
-
     void detectFeatures(Mat img, vector<KeyPoint> &points, Mat &pdesc, vector<KeyLine> &lines, Mat &ldesc, double min_line_length);
     void matchPointFeatures(BFMatcher* bfm, Mat pdesc_1, Mat pdesc_2, vector<vector<DMatch>> &pmatches_12);
     void matchLineFeatures(Ptr<BinaryDescriptorMatcher> bdm, Mat ldesc_1, Mat ldesc_2, vector<vector<DMatch>> &lmatches_12 );
@@ -80,7 +65,7 @@ public:
     int frame_idx;
     Mat img_l, img_r;
     Matrix4d Tfw;
-    Matrix4d DT;    // pose increment with respect to the previous frame
+    Matrix4d DT;
     Matrix6d DT_cov;
     Vector6d DT_cov_eig;
     double   err_norm;

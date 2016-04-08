@@ -46,10 +46,6 @@ public:
     void optimizePose();
     void updateFrame();
 
-    void currFrameIsKF();
-    void checkKFCommonCorrespondences(double p_th, double l_th);
-    cv::Mat checkKFCommonCorrespondencesPlot(double p_th, double l_th);
-
     int  n_inliers, n_inliers_pt, n_inliers_ls, max_idx_pt, max_idx_ls, max_idx_pt_prev_kf, max_idx_ls_prev_kf;
 
     list<PointFeature*> matched_pt;
@@ -62,8 +58,8 @@ public:
 
 private:
 
-    void matchPointFeatures(BFMatcher* bfm, Mat pdesc_1, Mat pdesc_2, vector<vector<DMatch>> &pmatches_12  );   // TODO: remove (already implemented in stereoFrame.cpp)
-    void matchLineFeatures(Ptr<BinaryDescriptorMatcher> bdm, Mat ldesc_1, Mat ldesc_2, vector<vector<DMatch>> &lmatches_12  ); // TODO: remove (already implemented in stereoFrame.cpp)
+    void matchPointFeatures(BFMatcher* bfm, Mat pdesc_1, Mat pdesc_2, vector<vector<DMatch>> &pmatches_12  );
+    void matchLineFeatures(Ptr<BinaryDescriptorMatcher> bdm, Mat ldesc_1, Mat ldesc_2, vector<vector<DMatch>> &lmatches_12  );
 
     void removeOutliers( Matrix4d DT );
     void gaussNewtonOptimization(Matrix4d &DT, Matrix6d &DT_cov, double &err_);

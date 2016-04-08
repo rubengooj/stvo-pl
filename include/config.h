@@ -18,7 +18,6 @@ public:
     static bool&    robustCost()        { return getInstance().robust_cost; }
     static bool&    motionPrior()       { return getInstance().motion_prior; }
     static bool&    bestLRMatches()     { return getInstance().best_lr_matches; }
-    static bool&    fundMatrixFilter()  { return getInstance().fund_matrix_filter; }
     static bool&    useEDLines()        { return getInstance().use_edlines; }
     static bool&    scalePointsLines()  { return getInstance().scale_points_lines; }
     static bool&    useLevMarquardt()   { return getInstance().use_lev_marquardt; }
@@ -30,7 +29,6 @@ public:
     static int&     orbNLevels()        { return getInstance().orb_nlevels; }
     static double&  maxDistEpip()       { return getInstance().max_dist_epip; }
     static double&  minDisp()           { return getInstance().min_disp; }
-    static double&  descThP()           { return getInstance().desc_th_p; }
     static double&  minRatio12P()       { return getInstance().min_ratio_12_p; }
     static double&  maxF2FDisp()        { return getInstance().max_f2f_disp; }
 
@@ -81,7 +79,6 @@ private:
     bool robust_cost;
     bool motion_prior;
     bool best_lr_matches;
-    bool fund_matrix_filter;
     bool use_edlines;
     bool scale_points_lines;
     bool use_lev_marquardt;
@@ -93,7 +90,6 @@ private:
     int    orb_nlevels;
     double max_dist_epip;
     double min_disp;
-    double desc_th_p;
     double min_ratio_12_p;
     double max_f2f_disp;
 

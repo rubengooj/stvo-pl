@@ -190,7 +190,6 @@ bool is_finite(const MatrixXd x){
 }
 
 bool is_nan(const MatrixXd x){
-    //bool aux = false;   // why it does not work with returns?
     for(unsigned int i = 0; i < x.rows(); i++){
         for(unsigned int j = 0; j < x.cols(); j++){
             if(std::isnan(x(i,j)))

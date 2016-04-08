@@ -3,7 +3,6 @@ project( StVO-PL )
 cmake_minimum_required(VERSION 2.7)
 find_package( OpenCV 3 REQUIRED)
 find_package(Boost REQUIRED COMPONENTS thread system filesystem)	
-#find_package( Eigen    REQUIRED)
 
 if(COMMAND cmake_policy)
   	cmake_policy(SET CMP0003 NEW)	
@@ -17,7 +16,6 @@ set(HAS_MRPT ${DEFAULT_HAS_MRPT} CACHE BOOL "Build the PointGrey Bumblebee2 SVO 
 SET(BUILD_SHARED_LIBS ON)
 SET(CMAKE_MODULE_PATH $ENV{CMAKE_MODULE_PATH})
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x -O3 -mtune=native -march=native")
-#SET(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   -std=c++11 -Os")
 
 # MRPT library (optional, only with representation purposes)
 if(HAS_MRPT)
@@ -62,7 +60,6 @@ list(APPEND SOURCEFILES
   src/sceneRepresentation.cpp
   src/auxiliar.cpp
   src/bumblebeeGrabber.cpp
-  #--------------------------- new files
   src/config.cpp
   src/pinholeStereoCamera.cpp
   src/stereoFeatures.cpp
@@ -96,43 +93,12 @@ target_link_libraries(stvo ${LINK_LIBS})
 endif()
 
 # Applications
-
 if(HAS_MRPT)
 add_executable       ( bbStVO app/bbStVO.cpp )
 target_link_libraries( bbStVO stvo )
 endif(HAS_MRPT)
 add_executable       ( imagesStVO app/imagesStVO.cpp )
 target_link_libraries( imagesStVO stvo )
-
-#else()
-
-#endif()
-
-
 #add_executable       ( imagesSVO app/imagesSVO.cpp )
 #target_link_libraries( imagesSVO stvo )
 
-
-
-#if(HAS_MRPT)
-#add_executable       ( simulatedSVO  	    src/simulatedSVO.cpp )
-#target_link_libraries( simulatedSVO	        ${OpenCV_LIBS} ${MRPT_LIBS} )
-#add_executable       ( kittiHistograms  	src/kittiHistograms.cpp )
-#target_link_libraries( kittiHistograms	    ${OpenCV_LIBS} ${MRPT_LIBS} )
-#add_executable       ( bumblebeeSVO  	    src/bumblebeeSVO.cpp )
-#target_link_libraries( bumblebeeSVO	        ${OpenCV_LIBS} ${MRPT_LIBS} )
-#add_executable       ( bumblebeeSVO_comp  	src/bumblebeeSVO_comp.cpp )
-#target_link_libraries( bumblebeeSVO_comp	${OpenCV_LIBS} ${MRPT_LIBS} )
-#add_executable       ( imagesSVO  	        src/imagesSVO.cpp )
-#target_link_libraries( imagesSVO	        ${OpenCV_LIBS} ${MRPT_LIBS} )
-#add_executable       ( outliersSVO  	    src/outliersSVO.cpp )
-#target_link_libraries( outliersSVO	        ${OpenCV_LIBS} ${MRPT_LIBS} )
-#add_executable       ( kittiSVO_optims      src/kittiSVO_optims.cpp )
-#target_link_libraries( kittiSVO_optims      ${OpenCV_LIBS} ${MRPT_LIBS} )
-#add_executable       ( kittiSVO_eval      src/kittiSVO_eval.cpp )
-#target_link_libraries( kittiSVO_eval      ${OpenCV_LIBS} ${MRPT_LIBS} )
-#add_executable       ( kittiSVO_paper       src/kittiSVO_paper.cpp )
-#target_link_libraries( kittiSVO_paper       ${OpenCV_LIBS} ${MRPT_LIBS} )
-#add_executable       ( kittiSVO_paper_parallel       src/kittiSVO_paper_parallel.cpp )
-#target_link_libraries( kittiSVO_paper_parallel       ${OpenCV_LIBS} ${MRPT_LIBS} )
-#endif(HAS_MRPT)
