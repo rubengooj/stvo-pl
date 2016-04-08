@@ -45,6 +45,8 @@ public:
     static int&     lsdNBins()          { return getInstance().lsd_n_bins; }
     static double&  minHorizAngle()     { return getInstance().min_horiz_angle; }
     static double&  maxAngleDiff()      { return getInstance().max_angle_diff; }
+    static double&  maxF2FAngDiff()     { return getInstance().max_f2f_ang_diff; }
+    static double&  f2fFlowTh()         { return getInstance().f2f_flow_th; }
     static double&  lineHorizTh()       { return getInstance().line_horiz_th; }
     static double&  minLineLength()     { return getInstance().min_line_length; }
     static double&  descThL()           { return getInstance().desc_th_l; }
@@ -113,6 +115,8 @@ private:
     double edl_fit_err_th;
     double min_horiz_angle;
     double max_angle_diff;
+    double max_f2f_ang_diff;
+    double f2f_flow_th;
     double line_horiz_th;
     double min_line_length;
     double desc_th_l;

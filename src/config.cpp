@@ -49,6 +49,8 @@ Config::Config()
     min_line_length  = 0.025; // relative to img size
     min_horiz_angle  = 5.0;
     max_angle_diff   = 10.0;
+    max_f2f_ang_diff = 10.0;
+    f2f_flow_th      = 100.0;
     line_horiz_th    = 0.1;
     desc_th_l        = 0.5;
 

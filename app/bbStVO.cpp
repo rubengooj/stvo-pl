@@ -24,11 +24,6 @@
 #include <stereoFrame.h>
 #include <stereoFrameHandler.h>
 #include <sceneRepresentation.h>
-
-#include <ctime>
-#include <boost/fusion/include/vector.hpp>
-#include <boost/fusion/include/at_c.hpp>
-#include <boost/filesystem.hpp>
 #include "yaml-cpp/yaml.h"
 
 using namespace StVO;
@@ -37,8 +32,8 @@ Mat         img_l, img_r;
 mutex       bb_mutex, vo_mutex;
 Matrix3f    K;
 float       b;
-int         img_width  = 640;
-int         img_height = 480;
+int         img_width  = 640,
+            img_height = 480;
 string      frame_rate = "FRAMERATE_20";
 
 void bumblebeeThread()
