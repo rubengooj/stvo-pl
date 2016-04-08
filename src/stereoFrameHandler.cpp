@@ -352,7 +352,10 @@ void StereoFrameHandler::gaussNewtonOptimization(Matrix4d &DT, Matrix6d &DT_cov,
     for( int iters = 0; iters < Config::maxIters(); iters++)
     {
         // estimate hessian and gradient (select)
-        optimizeFunctions_nonweighted( DT, H, g, err );
+        if( Config::useUncertainty() )
+            optimizeFunctions_uncweighted( DT, H, g, err );
+        else
+            optimizeFunctions_nonweighted( DT, H, g, err );
         // if the difference is very small stop
         if( ( abs(err-err_prev) < Config::minErrorChange() ) || ( err < Config::minError()) )
             break;
@@ -380,7 +383,10 @@ void StereoFrameHandler::levMarquardtOptimization(Matrix4d &DT, Matrix6d &DT_cov
     for( int iters = 0; iters < Config::maxIters(); iters++)
     {
         // estimate hessian and gradient (select)
-        optimizeFunctions_nonweighted( DT, H, g, err );
+        if( Config::useUncertainty() )
+            optimizeFunctions_uncweighted( DT, H, g, err );
+        else
+            optimizeFunctions_nonweighted( DT, H, g, err );
         // if the difference is very small stop
         if( ( abs(err-err_prev) < Config::minErrorChange() ) || ( err < Config::minError()) )
             break;
@@ -525,7 +531,7 @@ void StereoFrameHandler::optimizeFunctions_nonweighted(Matrix4d DT, Matrix6d &H,
                 (*it)->inlier = false;
         }
     }
-    if( Config::scalePointsLines() && Config::hasPoints() )
+    if( Config::scalePointsLines() )
         S_p = vector_stdv_mad(r_p);
 
     // line segment features
@@ -624,13 +630,16 @@ void StereoFrameHandler::optimizeFunctions_nonweighted(Matrix4d DT, Matrix6d &H,
 
 }
 
-/*void StereoFrameHandler::optimizeFunctions_uncweighted(Matrix4d DT, Matrix6d &H, Vector6d &g, double &err )
+void StereoFrameHandler::optimizeFunctions_uncweighted(Matrix4d DT, Matrix6d &H, Vector6d &g, double &e )
 {
 
-    // define hessian, gradient, and residuals
-    H   = Matrix6d::Zero();
-    g   = Vector6d::Zero();
-    err = 0.0;
+    // define hessians, gradients, and residuals
+    Matrix6d H_l, H_p;
+    Vector6d g_l, g_p;
+    double   e_l = 0.0, e_p = 0.0, S_l, S_p;
+    H   = Matrix6d::Zero(); H_l = H; H_p = H;
+    g   = Vector6d::Zero(); g_l = g; g_p = g;
+    e   = 0.0;
 
     // assign cam parameters
     double f     = cam->getFx();   // we assume fx == fy
@@ -646,6 +655,8 @@ void StereoFrameHandler::optimizeFunctions_nonweighted(Matrix4d DT, Matrix6d &H,
     // point features
     Matrix3d R  = DT.block(0,0,3,3);
     int n_inliers_ = 0;
+    int N_p = 0;
+    vector<double> r_p;
     for( list<PointFeature*>::iterator it = matched_pt.begin(); it!=matched_pt.end(); it++)
     {
         if( (*it)->inlier )
@@ -708,16 +719,23 @@ void StereoFrameHandler::optimizeFunctions_nonweighted(Matrix4d DT, Matrix6d &H,
                 if( Config::robustCost() )
                     w = 1.0 / ( 1.0 + err_i_norm );
                 // update hessian, gradient, and error
-                H   += J_aux * J_aux.transpose() * wunc * w / err_i_norm ;
-                g   += J_aux * w;
-                err += err_i_norm * err_i_norm * wunc * w ;
+                H_p += J_aux * J_aux.transpose() * wunc * w / err_i_norm ;
+                g_p += J_aux * w * wunc;
+                e_p += err_i_norm * err_i_norm * wunc * w ;
+                N_p++;
+                if( Config::scalePointsLines() )
+                    r_p.push_back( err_i_norm * err_i_norm * w * wunc );
             }
             else
                 (*it)->inlier = false;
         }
     }
+    if( Config::scalePointsLines() )
+        S_p = vector_stdv_mad(r_p);
 
     // line segment features
+    int N_l = 0;
+    vector<double> r_l;
     for( list<LineFeature*>::iterator it = matched_ls.begin(); it!=matched_ls.end(); it++)
     {
 
@@ -824,9 +842,6 @@ void StereoFrameHandler::optimizeFunctions_nonweighted(Matrix4d DT, Matrix6d &H,
                 cov_q = 1.f / cov_q;
                 cov_q = p4 * cov_q * 0.5f * bsigma_inv;
 
-                cout << endl << cov_p << " " << cov_q ;
-                //cout << endl << p4 << " " << bsigma_inv << "\t" << epl_proj_.transpose() << "\t" << spl_proj_.transpose() ;
-
                 if( !std::isinf(cov_p) && !std::isnan(cov_p) && !std::isinf(cov_q) && !std::isnan(cov_q) )
                 {
                     n_inliers_++;
@@ -840,9 +855,12 @@ void StereoFrameHandler::optimizeFunctions_nonweighted(Matrix4d DT, Matrix6d &H,
                     if( Config::robustCost() )
                         w = 1.0 / ( 1.0 + err_i_norm );
                     // update hessian, gradient, and error
-                    H   += J_aux * J_aux.transpose() * wunc * w / err_i_norm ;
-                    g   += J_aux * w;
-                    err += err_i_norm * err_i_norm * wunc * w ;
+                    H_l += J_aux * J_aux.transpose() * wunc * w / err_i_norm ;
+                    g_l += J_aux * w * wunc;
+                    e_l += err_i_norm * err_i_norm * wunc * w ;
+                    N_l++;
+                    if( Config::scalePointsLines() )
+                        r_l.push_back( err_i_norm * err_i_norm * w * wunc );
                 }
                 else
                     (*it)->inlier = false;
@@ -852,14 +870,34 @@ void StereoFrameHandler::optimizeFunctions_nonweighted(Matrix4d DT, Matrix6d &H,
         }
 
     }
+    if( Config::scalePointsLines() )
+        S_l = vector_stdv_mad(r_l);
 
-    //cout << endl;
+    // sum H, g and err from both points and lines
+    if( Config::scalePointsLines() && S_l > Config::homogTh() && S_p > Config::homogTh() &&
+        Config::hasPoints() )
+    {
+        double S_l_inv = 1.0 / S_l;
+        double S_p_inv = 1.0 / S_p;
+        double S_l_ = (S_p_inv+S_l_inv) / S_p_inv;
+        double S_p_ = (S_p_inv+S_l_inv) / S_l_inv;
+        H = H_p * S_p_ + H_l * S_l_;
+        g = g_p * S_p_ + g_l * S_l_;
+        e = e_p * S_p_ + e_l * S_l_;
+    }
+    else
+    {
+        H = H_p + H_l;
+        g = g_p + g_l;
+        e = e_p + e_l;
+    }
 
     // normalize error
-    err /= n_inliers_;
+    e /= (N_l+N_p);
+
 
 }
-*/
+
 
 /*  slam functions  */
 

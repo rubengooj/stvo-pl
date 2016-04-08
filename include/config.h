@@ -22,6 +22,7 @@ public:
     static bool&    useEDLines()        { return getInstance().use_edlines; }
     static bool&    scalePointsLines()  { return getInstance().scale_points_lines; }
     static bool&    useLevMarquardt()   { return getInstance().use_lev_marquardt; }
+    static bool&    useUncertainty()    { return getInstance().use_uncertainty; }
 
     // points detection and matching
     static int&     orbNFeatures()      { return getInstance().orb_nfeatures; }
@@ -82,6 +83,7 @@ private:
     bool use_edlines;
     bool scale_points_lines;
     bool use_lev_marquardt;
+    bool use_uncertainty;
 
     // points detection and matching
     int    orb_nfeatures;

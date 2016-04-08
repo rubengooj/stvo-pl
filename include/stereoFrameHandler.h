@@ -90,7 +90,7 @@ private:
     void gaussNewtonOptimization(Matrix4d &DT, Matrix6d &DT_cov, double &err_);
     void levMarquardtOptimization(Matrix4d &DT, Matrix6d &DT_cov, double &err_);
     void optimizeFunctions_nonweighted(Matrix4d DT, Matrix6d &H, Vector6d &g, double &e);
-    void optimizeFunctions_uncweighted(Matrix4d DT, Matrix6d &H, Vector6d &g, double &err);
+    void optimizeFunctions_uncweighted(Matrix4d DT, Matrix6d &H, Vector6d &g, double &e);
 
 };
 

@@ -14,6 +14,7 @@ Config::Config()
     use_edlines        = true;
     scale_points_lines = true;
     use_lev_marquardt  = true;
+    use_uncertainty    = false;
     //motion_prior       = false;
     //fund_matrix_filter = false;
 
@@ -65,6 +66,7 @@ Config::Config()
     min_error        = 0.0000001;
     min_error_change = 0.0000001;
     inlier_k         = 2.0;
+    sigma_px         = 1.0;
     max_optim_error  = 999999.0;
 
 }
