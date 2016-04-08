@@ -39,6 +39,7 @@ double vector_stdv_mad( vector<double> residues)
         return 0.0;
 }
 
+
 namespace StVO{
 
 StereoFrameHandler::StereoFrameHandler( PinholeStereoCamera *cam_ ) : cam(cam_) {}
@@ -898,7 +899,6 @@ void StereoFrameHandler::optimizeFunctions_uncweighted(Matrix4d DT, Matrix6d &H,
 
 }
 
-
 /*  slam functions  */
 
 void StereoFrameHandler::currFrameIsKF()
@@ -963,14 +963,12 @@ void StereoFrameHandler::checkKFCommonCorrespondences(double p_th, double l_th)
         else
             bfm->knnMatch( pdesc_l1, pdesc_l2, pmatches_12, 2);
 
-        // ---------------------------------------------------------------------
-        // sort matches by the distance between the best and second best matches
-        #pragma message("TODO: try robust standard deviation (MAD)")
+        // // sort matches by the distance between the best and second best matches
+        // pointDescriptorMAD(pmatches_lr,nn_dist_th, nn12_dist_th);
+        // nn_dist_th    = nn_dist_th   * Config::descThP();
+        // nn12_dist_th  = nn12_dist_th * Config::descThP();
         double nn_dist_th, nn12_dist_th;
-        curr_frame->pointDescriptorMAD( pmatches_12, nn_dist_th, nn12_dist_th );
-        nn_dist_th    = nn_dist_th   * Config::descThP();
-        nn12_dist_th  = nn12_dist_th * Config::descThP();
-        // ---------------------------------------------------------------------
+        nn12_dist_th  = Config::minRatio12P();
 
         // resort according to the queryIdx
         sort( pmatches_12.begin(), pmatches_12.end(), sort_descriptor_by_queryIdx() );
@@ -989,9 +987,9 @@ void StereoFrameHandler::checkKFCommonCorrespondences(double p_th, double l_th)
             else
                 rl_tdx = lr_qdx;
             // check if they are mutual best matches and the minimum distance
-            double dist_nn = pmatches_12[i][0].distance;
-            double dist_12 = pmatches_12[i][1].distance - pmatches_12[i][0].distance;
-            if( lr_qdx == rl_tdx  && dist_12 > nn12_dist_th && dist_nn < nn_dist_th )
+            //double dist_nn = pmatches_12[i][0].distance;
+            double dist_12 = pmatches_12[i][0].distance / pmatches_12[i][1].distance;
+            if( lr_qdx == rl_tdx  && dist_12 > nn12_dist_th )//&& dist_nn < nn_dist_th )
             {
                 // check epipolar constraint
                 Vector3d P_ = DT.block(0,0,3,3) * prev_keyframe->stereo_pt[lr_qdx]->P + DT.col(3).head(3);
@@ -1033,14 +1031,12 @@ void StereoFrameHandler::checkKFCommonCorrespondences(double p_th, double l_th)
         else
             bdm->knnMatch( ldesc_l1, ldesc_l2, lmatches_12, 2);
 
-        // ---------------------------------------------------------------------
-        // sort matches by the distance between the best and second best matches
-        #pragma message("TODO: try robust standard deviation (MAD)")
+        // // sort matches by the distance between the best and second best matches
+        // nn_dist_th    = nn_dist_th   * Config::descThL();
+        //double nn12_dist_th  = Config::minRatio12L();
         double nn_dist_th, nn12_dist_th;
-        curr_frame->pointDescriptorMAD( lmatches_12, nn_dist_th, nn12_dist_th );
-        nn_dist_th    = nn_dist_th   * Config::descThL();
+        lineDescriptorMAD(lmatches_lr,nn_dist_th, nn12_dist_th);
         nn12_dist_th  = nn12_dist_th * Config::descThL();
-        // ---------------------------------------------------------------------
 
         // resort according to the queryIdx
         sort( lmatches_12.begin(), lmatches_12.end(), sort_descriptor_by_queryIdx() );

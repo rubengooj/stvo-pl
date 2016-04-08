@@ -331,7 +331,7 @@ void StereoFrame::extractStereoFeatures()
             else
                 rl_tdx = lr_qdx;
             // check if they are mutual best matches and the minimum distance
-            double dist_nn = pmatches_lr[i][0].distance;
+            //double dist_nn = pmatches_lr[i][0].distance;
             double dist_12 = pmatches_lr[i][0].distance / pmatches_lr[i][1].distance;
             if( lr_qdx == rl_tdx  && dist_12 > nn12_dist_th )//&& dist_nn < nn_dist_th )
             {
@@ -384,11 +384,11 @@ void StereoFrame::extractStereoFeatures()
             bdm->knnMatch( ldesc_l,ldesc_r, lmatches_lr, 2);
 
         // // sort matches by the distance between the best and second best matches
+        // nn_dist_th    = nn_dist_th   * Config::descThL();
+        //double nn12_dist_th  = Config::minRatio12L();
         double nn_dist_th, nn12_dist_th;
         lineDescriptorMAD(lmatches_lr,nn_dist_th, nn12_dist_th);
-        // nn_dist_th    = nn_dist_th   * Config::descThL();
         nn12_dist_th  = nn12_dist_th * Config::descThL();
-        //double nn12_dist_th  = Config::minRatio12L();
 
         // bucle around pmatches
         sort( lmatches_lr.begin(), lmatches_lr.end(), sort_descriptor_by_queryIdx() );
@@ -400,6 +400,7 @@ void StereoFrame::extractStereoFeatures()
             n_matches = min(lmatches_lr.size(),lmatches_rl.size());
         else
             n_matches = lmatches_lr.size();
+
         for( int i = 0; i < n_matches; i++ )
         {
             // check if they are mutual best matches ( if bestLRMatches() )
