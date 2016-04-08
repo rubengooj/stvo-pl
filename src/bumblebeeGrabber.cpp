@@ -2,8 +2,8 @@
 **   Stereo Visual Odometry by combining point and line segment features	**
 ******************************************************************************
 **																			**
-**	Copyright(c) 2015, Ruben Gomez-Ojeda, University of Malaga              **
-**	Copyright(c) 2015, MAPIR group, University of Malaga					**
+**	Copyright(c) 2016, Ruben Gomez-Ojeda, University of Malaga              **
+**	Copyright(c) 2016, MAPIR group, University of Malaga					**
 **																			**
 **  This program is free software: you can redistribute it and/or modify	**
 **  it under the terms of the GNU General Public License (version 3) as		**
