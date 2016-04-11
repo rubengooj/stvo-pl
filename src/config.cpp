@@ -36,7 +36,7 @@ Config::Config()
     scale_points_lines = true;
     use_lev_marquardt  = true;
     use_uncertainty    = false;
-    motion_prior       = false;
+    motion_prior       = true;
 
     // points detection and matching
     orb_nfeatures    = 1200;

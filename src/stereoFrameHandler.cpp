@@ -339,9 +339,21 @@ void StereoFrameHandler::gaussNewtonOptimization(Matrix4d &DT, Matrix6d &DT_cov,
         if( ( abs(err-err_prev) < Config::minErrorChange() ) || ( err < Config::minError()) )
             break;
         // update step
-        LDLT<Matrix6d> solver(H);
-        DT_inc = solver.solve(g);
-        DT  << DT * inverse_transformation( transformation_expmap(DT_inc) );
+        if( Config::motionPrior() )
+        {
+            Matrix6d prior_cov_inv = prior_cov.inverse();
+            H += prior_cov_inv;
+            g += prior_cov_inv * ( DT_inc - prior_inc );
+            LDLT<Matrix6d> solver(H);
+            DT_inc = solver.solve(g);
+            DT  << DT * inverse_transformation( transformation_expmap(DT_inc) );
+        }
+        else
+        {
+            LDLT<Matrix6d> solver(H);
+            DT_inc = solver.solve(g);
+            DT  << DT * inverse_transformation( transformation_expmap(DT_inc) );
+        }
         // if the parameter change is small stop (TODO: change with two parameters, one for R and another one for t)
         if( DT_inc.norm() < numeric_limits<double>::epsilon() )
             break;
@@ -872,6 +884,12 @@ void StereoFrameHandler::optimizeFunctions_uncweighted(Matrix4d DT, Matrix6d &H,
     e /= (N_l+N_p);
 
 
+}
+
+void StereoFrameHandler::setMotionPrior(Vector6d prior_inc_, Matrix6d prior_cov_)
+{
+    prior_inc = prior_inc_;
+    prior_cov = prior_cov_;
 }
 
 }

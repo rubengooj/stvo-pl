@@ -45,6 +45,7 @@ public:
     void f2fTracking();
     void optimizePose();
     void updateFrame();
+    void setMotionPrior(Vector6d prior_inc_, Matrix6d prior_cov_);
 
     int  n_inliers, n_inliers_pt, n_inliers_ls, max_idx_pt, max_idx_ls, max_idx_pt_prev_kf, max_idx_ls_prev_kf;
 
@@ -55,6 +56,10 @@ public:
     StereoFrame* prev_frame;
     StereoFrame* curr_frame;
     PinholeStereoCamera* cam;
+
+    Vector6d prior_inc;
+    Matrix6d prior_cov;
+
 
 private:
 
