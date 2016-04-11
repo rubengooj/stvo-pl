@@ -35,7 +35,7 @@ Config::Config()
     use_edlines        = true;
     scale_points_lines = true;
     use_lev_marquardt  = true;
-    use_uncertainty    = false;
+    use_uncertainty    = true;
     motion_prior       = true;
 
     // points detection and matching

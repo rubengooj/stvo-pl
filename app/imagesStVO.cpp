@@ -30,7 +30,7 @@
 #include <boost/fusion/include/vector.hpp>
 #include <boost/fusion/include/at_c.hpp>
 #include <boost/filesystem.hpp>
-#include "yaml-cpp/yaml.h"
+#include <yaml-cpp/yaml.h>
 
 
 using namespace StVO;
@@ -155,8 +155,8 @@ int main(int argc, char **argv)
     Matrix6d cov;
     Tcw = Matrix4d::Identity();
     #ifdef HAS_MRPT
-    sceneRepresentation scene("scene_config.ini");
-    scene.initializeScene(Tfw);
+    sceneRepresentation* scene = new sceneRepresentation("scene_config.ini");
+    scene->initializeScene(Tfw);
     mrpt::utils::CTicTac clock;
     #endif
 
@@ -198,11 +198,11 @@ int main(int argc, char **argv)
 
             // update scene
             #ifdef HAS_MRPT
-            scene.setText(frame_counter,t1,StVO->n_inliers_pt,StVO->matched_pt.size(),StVO->n_inliers_ls,StVO->matched_ls.size());
-            scene.setCov( cov );
-            scene.setPose( T_inc );
-            scene.setImage( img_path_l.string() );
-            scene.updateScene();
+            scene->setText(frame_counter,t1,StVO->n_inliers_pt,StVO->matched_pt.size(),StVO->n_inliers_ls,StVO->matched_ls.size());
+            scene->setCov( cov );
+            scene->setPose( T_inc );
+            scene->setImage( img_path_l.string() );
+            scene->updateScene();
             #endif
 
             // console output
@@ -218,10 +218,6 @@ int main(int argc, char **argv)
 
         }
     }
-
-
-
-
 
     return 0;
 }

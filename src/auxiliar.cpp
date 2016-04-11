@@ -231,7 +231,6 @@ double vector_stdv_mad( VectorXf residues)
     return 1.4826 * MAD;
 }
 
-
 double vector_stdv_mad( vector<double> residues)
 {
     if( residues.size() != 0 )
