@@ -57,14 +57,3 @@ The first one is "imagesStVO", a customizable application where the user must in
 
 The second one, called "bumblebeeSVO", is an application that computes stereo visual odometry between the successive frames readed by a PointGrey Bumblebee2 stereo camera, and shows a 3D visualization of the camera motion. It is built or not depending on the CMake variable "HAS_MRPT".
 
-
-## 3. Usage
-
-
-
-# Usage
-# -------------------------------------------------------------------------------------------- #
-The "bumblebeeSVO" application reads a configuration file named "svoConfig.ini" where the user can change the input parameters if desired. 
-
-A complete configuration file "svoConfig_full.ini" is also provided, which includes all the parameters employed internally by the algorithm, but we recommend not to change the parameters.
-
