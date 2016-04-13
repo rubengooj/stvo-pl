@@ -149,14 +149,41 @@ int main(int argc, char **argv)
         return -1;
     }
 
+    // ground truth file
+    string gt_name = dataset_dir + "/groundtruth.txt";
+
+    cout << endl << gt_name << endl;
+
+    vector<Matrix4d> GTposes;
+    if( true ){
+        FILE *fp = fopen(gt_name.c_str(),"r");
+        if (!fp){
+            cout << endl << endl << "Error when loading GT poses." << endl << endl;
+            //hasGT = false;
+        }
+        while (!feof(fp)) {
+            Matrix4f P = Matrix4f::Identity();
+            if (fscanf(fp, "%f %f %f %f %f %f %f %f %f %f %f %f",
+                           &P(0,0), &P(0,1), &P(0,2), &P(0,3),
+                           &P(1,0), &P(1,1), &P(1,2), &P(1,3),
+                           &P(2,0), &P(2,1), &P(2,2), &P(2,3) )==12)
+            {
+
+                GTposes.push_back( P.cast<double>() );
+            }
+        }
+        fclose(fp);
+    }
+
     // create scene
-    Matrix4d Tcw, Tfw = Matrix4d::Identity(), Tfw_prev = Matrix4d::Identity(), T_inc;
+    Matrix4d Tcw, Tfw = Matrix4d::Identity(), Tfw_prev = Matrix4d::Identity(), T_inc = Matrix4d::Identity(), T_inc_l = Matrix4d::Identity();
     Vector6d cov_eig;
     Matrix6d cov;
     Tcw = Matrix4d::Identity();
+    Tcw << 1, 0, 0, 0, 0, 0, 1, 0, 0, -1, 0, 0, 0, 0, 0, 1;
     #ifdef HAS_MRPT
     sceneRepresentation* scene = new sceneRepresentation("scene_config.ini");
-    scene->initializeScene(Tfw);
+    scene->initializeScene(Tcw);
     mrpt::utils::CTicTac clock;
     #endif
 
@@ -186,15 +213,19 @@ int main(int argc, char **argv)
             StVO->insertStereoPair( img_l, img_r, frame_counter, T_inc );
             if(Config::motionPrior())
                 StVO->setMotionPrior( logarithm_map(T_inc) , cov );
-            StVO->optimizePose();
-            #ifdef HAS_MRPT
-            t1 = 1000 * clock.Tac(); //ms
-            #endif
 
-            // acces the pose
+            // set GT initial pose
+            Matrix4d gt_inc = inverse_transformation( GTposes[frame_counter] ) * GTposes[frame_counter-1];
+
+            // solve with robust kernel and IRLS
+            StVO->optimizePose();
             T_inc   = StVO->curr_frame->DT;
             cov     = StVO->curr_frame->DT_cov;
             cov_eig = StVO->curr_frame->DT_cov_eig;
+
+            #ifdef HAS_MRPT
+            t1 = 1000 * clock.Tac(); //ms
+            #endif
 
             // update scene
             #ifdef HAS_MRPT
@@ -202,6 +233,7 @@ int main(int argc, char **argv)
             scene->setCov( cov );
             scene->setPose( T_inc );
             scene->setImage( img_path_l.string() );
+            scene->setGT( GTposes[frame_counter] );
             scene->updateScene();
             #endif
 
