@@ -20,34 +20,36 @@ The provided code is published under the General Public License Version 3 (GPL v
 
 Please do not hesitate to contact the authors if you have any further questions.
 
+
 ## 1. Prerequisites and dependencies
 
-
-
-## 2. Configuration and generation
-
 ### OpenCV 3.0.0
-We use OpenCV for extracting and matching features from stereo images, which can be easily found at http://opencv.org. 
+It can be easily found at http://opencv.org. 
 In the case of line segments, we have modified the *line_descriptor* from the *opencv_contrib* 
 [repository](https://github.com/Itseez/opencv_contrib), included in the *3rdparty* folder.
 
 ### Eigen3
-We have employed 
+http://eigen.tuxfamily.org
 
 ### Boost
+Installation on Ubuntu:
+```
+sudo apt-get install libboost-dev
+```
 
 ### YAML
+Installation on Ubuntu:
+```
+sudo apt-get install libyaml-dev
+```
 
 ### MRPT
+In case of using the provided representation class or the PointGrey Bumblebee2 Stereo Camera application. 
+Download and install instructions can be found at: http://www.mrpt.org/
 
 
-
-
-
-
-# Configuration and generation
-# -------------------------------------------------------------------------------------------- #
-A CMakeLists.txt file is included to detect external dependencies and generate the project automatically. OpenCV and MRPT are used, but only OpenCV is required.
+## 2. Configuration and generation
+A CMakeLists.txt file is included to detect external dependencies and generate the project.
 
 The project builds 2 different applications to evaluate and visualize it.
 
@@ -55,14 +57,10 @@ The first one is "imagesStVO", a customizable application where the user must in
 
 The second one, called "bumblebeeSVO", is an application that computes stereo visual odometry between the successive frames readed by a PointGrey Bumblebee2 stereo camera, and shows a 3D visualization of the camera motion. It is built or not depending on the CMake variable "HAS_MRPT".
 
-In case you don't know MRPT I encourage you to have a look at its website here: http://www.mrpt.org/
-Detailed instructions about how to install it (or some of its modules) can be found here: http://www.mrpt.org/download-mrpt/
 
-# Compiling
-# -------------------------------------------------------------------------------------------- #
-The compiling process should be straightforward (OpenCV and MRPT should be easily found by CMake).
+## 3. Usage
 
-The only problem might arise from headers that are included but the compiler cannot find. In this case you should find those files on your computer and include them with the correct path (for your machine).
+
 
 # Usage
 # -------------------------------------------------------------------------------------------- #
