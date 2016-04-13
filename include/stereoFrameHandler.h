@@ -41,9 +41,9 @@ public:
     void initialize( const Mat& img_l_, const Mat& img_r_, const int idx_);
     void insertStereoPair(const Mat& img_l_, const Mat& img_r_, const int idx_);
     void insertStereoPair(const Mat& img_l_, const Mat& img_r_, const int idx_, Matrix4d DT_ini);
-    void processOdometry();
     void f2fTracking();
     void optimizePose();
+    void optimizePose(Matrix4d DT_ini);
     void updateFrame();
     void setMotionPrior(Vector6d prior_inc_, Matrix6d prior_cov_);
 
@@ -60,15 +60,13 @@ public:
     Vector6d prior_inc;
     Matrix6d prior_cov;
 
-
 private:
 
     void matchPointFeatures(BFMatcher* bfm, Mat pdesc_1, Mat pdesc_2, vector<vector<DMatch>> &pmatches_12  );
     void matchLineFeatures(Ptr<BinaryDescriptorMatcher> bdm, Mat ldesc_1, Mat ldesc_2, vector<vector<DMatch>> &lmatches_12  );
-
     void removeOutliers( Matrix4d DT );
-    void gaussNewtonOptimization(Matrix4d &DT, Matrix6d &DT_cov, double &err_);
-    void levMarquardtOptimization(Matrix4d &DT, Matrix6d &DT_cov, double &err_);
+    void gaussNewtonOptimization(Matrix4d &DT, Matrix6d &DT_cov, double &err_, int max_iters);
+    void levMarquardtOptimization(Matrix4d &DT, Matrix6d &DT_cov, double &err_, int max_iters);
     void optimizeFunctions_nonweighted(Matrix4d DT, Matrix6d &H, Vector6d &g, double &e);
     void optimizeFunctions_uncweighted(Matrix4d DT, Matrix6d &H, Vector6d &g, double &e);
 

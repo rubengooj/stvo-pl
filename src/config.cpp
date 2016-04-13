@@ -33,10 +33,10 @@ Config::Config()
     robust_cost        = true;
     best_lr_matches    = true;
     use_edlines        = true;
-    scale_points_lines = true;
-    use_lev_marquardt  = true;
-    use_uncertainty    = true;
-    motion_prior       = true;
+    scale_points_lines = false;
+    use_lev_marquardt  = false;
+    use_uncertainty    = false;
+    motion_prior       = false;
 
     // points detection and matching
     orb_nfeatures    = 1200;
@@ -79,16 +79,16 @@ Config::Config()
 
     // optimization
     lambda_lm        = 0.001;
-    lambda_k         = 5.0;
+    lambda_k         = 10.0;
     homog_th         = 0.0000001;
     min_features     = 10;
     max_iters        = 5;
-    max_iters_ref    = 20;
+    max_iters_ref    = 10;
     min_error        = 0.0000001;
     min_error_change = 0.0000001;
     inlier_k         = 2.0;
     sigma_px         = 1.0;
-    max_optim_error  = 10.0;
+    max_optim_error  = 100000.0;
 
 }
 

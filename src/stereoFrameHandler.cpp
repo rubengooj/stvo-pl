@@ -262,15 +262,17 @@ void StereoFrameHandler::optimizePose()
         DT_cov = prev_frame->DT_cov;
     }
 
-    // Gauss-Newton solver
+    cout << endl << DT << endl << endl;
+
+    // solver
     if( n_inliers > Config::minFeatures() )
     {
         // optimize
         DT_ = DT;
         if( Config::useLevMarquardt() )
-            levMarquardtOptimization(DT_,DT_cov,err);
+            levMarquardtOptimization(DT_,DT_cov,err,Config::maxIters());
         else
-            gaussNewtonOptimization(DT_,DT_cov,err);
+            gaussNewtonOptimization(DT_,DT_cov,err,Config::maxIters());
         // remove outliers (implement some logic based on the covariance's eigenvalues and optim error)
         if( is_finite(DT_) )
         {
@@ -279,9 +281,9 @@ void StereoFrameHandler::optimizePose()
             if( n_inliers > Config::minFeatures() )
             {
                 if( Config::useLevMarquardt() )
-                    levMarquardtOptimization(DT,DT_cov,err);
+                    levMarquardtOptimization(DT,DT_cov,err,Config::maxItersRef());
                 else
-                    gaussNewtonOptimization(DT,DT_cov,err);
+                    gaussNewtonOptimization(DT,DT_cov,err,Config::maxItersRef());
             }
             else
             {
@@ -323,12 +325,87 @@ void StereoFrameHandler::optimizePose()
 
 }
 
-void StereoFrameHandler::gaussNewtonOptimization(Matrix4d &DT, Matrix6d &DT_cov, double &err_)
+void StereoFrameHandler::optimizePose(Matrix4d DT_ini)
+{
+
+    // definitions
+    Matrix6d DT_cov;
+    Matrix4d DT, DT_;
+    double   err;
+
+    #pragma message("TODO: implement some logic to select the initial pose")
+    #pragma message("TODO: implement motion prior option")
+    // set init pose    (depending on the values of DT_cov_eig)
+    DT     = DT_ini;
+    DT_cov = prev_frame->DT_cov;
+
+    // Gauss-Newton solver
+    if( n_inliers > Config::minFeatures() )
+    {
+        // optimize
+        DT_ = DT;
+        if( Config::useLevMarquardt() )
+            levMarquardtOptimization(DT_,DT_cov,err,Config::maxIters());
+        else
+            gaussNewtonOptimization(DT_,DT_cov,err,Config::maxIters());
+        // remove outliers (implement some logic based on the covariance's eigenvalues and optim error)
+        if( is_finite(DT_) )
+        {
+            removeOutliers(DT_);
+            // refine without outliers
+            if( n_inliers > Config::minFeatures() )
+            {
+                if( Config::useLevMarquardt() )
+                    levMarquardtOptimization(DT,DT_cov,err,Config::maxItersRef());
+                else
+                    gaussNewtonOptimization(DT,DT_cov,err,Config::maxItersRef());
+            }
+            else
+            {
+                DT     = Matrix4d::Identity();
+                DT_cov = Matrix6d::Zero();
+            }
+        }
+        else
+        {
+            DT     = Matrix4d::Identity();
+            DT_cov = Matrix6d::Zero();
+        }
+    }
+    else
+    {
+        DT     = Matrix4d::Identity();
+        DT_cov = Matrix6d::Zero();
+    }
+
+    // set estimated pose
+    if( is_finite(DT_) && err < Config::maxOptimError() )
+    {
+        curr_frame->DT     = inverse_transformation( DT );  //check what's best
+        curr_frame->Tfw    = prev_frame->Tfw * curr_frame->DT;
+        curr_frame->DT_cov = DT_cov;
+        SelfAdjointEigenSolver<Matrix6d> eigensolver(DT_cov);
+        curr_frame->DT_cov_eig = eigensolver.eigenvalues();
+        curr_frame->err_norm   = err;
+    }
+    else
+    {
+        curr_frame->DT     = Matrix4d::Identity();
+        curr_frame->Tfw    = prev_frame->Tfw;
+        curr_frame->DT_cov = Matrix6d::Zero();
+        SelfAdjointEigenSolver<Matrix6d> eigensolver(DT_cov);
+        curr_frame->DT_cov_eig = eigensolver.eigenvalues();
+        curr_frame->err_norm   = -1.0;
+    }
+
+}
+
+void StereoFrameHandler::gaussNewtonOptimization(Matrix4d &DT, Matrix6d &DT_cov, double &err_, int max_iters)
 {
     Matrix6d H;
     Vector6d g, DT_inc;
     double err, err_prev = 999999999.9;
-    for( int iters = 0; iters < Config::maxIters(); iters++)
+    for( int iters = 0; iters < max_iters; iters++)
     {
         // estimate hessian and gradient (select)
         if( Config::useUncertainty() )
@@ -364,14 +441,14 @@ void StereoFrameHandler::gaussNewtonOptimization(Matrix4d &DT, Matrix6d &DT_cov,
     err_   = err;
 }
 
-void StereoFrameHandler::levMarquardtOptimization(Matrix4d &DT, Matrix6d &DT_cov, double &err_)
+void StereoFrameHandler::levMarquardtOptimization(Matrix4d &DT, Matrix6d &DT_cov, double &err_, int max_iters)
 {
     Matrix6d H;
     Vector6d g, DT_inc;
     Matrix4d DT_;
     double err, err_prev = 999999999.9;
     double lambda = Config::lambdaLM(), lambda_k = Config::lambdaK();
-    for( int iters = 0; iters < Config::maxIters(); iters++)
+    for( int iters = 0; iters < max_iters; iters++)
     {
         // estimate hessian and gradient (select)
         if( Config::useUncertainty() )
@@ -459,6 +536,7 @@ void StereoFrameHandler::removeOutliers(Matrix4d DT)
             n_inliers_ls--;
         }
     }
+
 }
 
 void StereoFrameHandler::optimizeFunctions_nonweighted(Matrix4d DT, Matrix6d &H, Vector6d &g, double &e )
@@ -506,7 +584,7 @@ void StereoFrameHandler::optimizeFunctions_nonweighted(Matrix4d DT, Matrix6d &H,
                 // if employing robust cost function
                 double w = 1.0;
                 if( Config::robustCost() )
-                    w = 1.0 / ( 1.0 + err_i_norm );
+                    w = 1.0 / ( 1.0 + err_i_norm * err_i_norm );
                 // update hessian, gradient, and error
                 H_p += J_aux * J_aux.transpose() * w;
                 g_p += J_aux * err_i_norm * w;
@@ -577,7 +655,7 @@ void StereoFrameHandler::optimizeFunctions_nonweighted(Matrix4d DT, Matrix6d &H,
                 // if employing robust cost function
                 double w = 1.0;
                 if( Config::robustCost() )
-                    w = 1.0 / ( 1.0 + err_i_norm );
+                    w = 1.0 / ( 1.0 + err_i_norm * err_i_norm );
                 // update hessian, gradient, and error
                 H_l += J_aux * J_aux.transpose() * w;
                 g_l += J_aux * err_i_norm * w;
@@ -596,7 +674,7 @@ void StereoFrameHandler::optimizeFunctions_nonweighted(Matrix4d DT, Matrix6d &H,
 
     // sum H, g and err from both points and lines
     if( Config::scalePointsLines() && S_l > Config::homogTh() && S_p > Config::homogTh() &&
-        Config::hasPoints() )
+        Config::hasPoints() && Config::hasLines() )
     {
         double S_l_inv = 1.0 / S_l;
         double S_p_inv = 1.0 / S_p;
@@ -863,7 +941,7 @@ void StereoFrameHandler::optimizeFunctions_uncweighted(Matrix4d DT, Matrix6d &H,
 
     // sum H, g and err from both points and lines
     if( Config::scalePointsLines() && S_l > Config::homogTh() && S_p > Config::homogTh() &&
-        Config::hasPoints() )
+        Config::hasPoints() && Config::hasLines() )
     {
         double S_l_inv = 1.0 / S_l;
         double S_p_inv = 1.0 / S_p;
