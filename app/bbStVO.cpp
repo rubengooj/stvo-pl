@@ -32,9 +32,9 @@ Mat         img_l, img_r;
 mutex       bb_mutex, vo_mutex;
 Matrix3f    K;
 float       b;
-int         img_width  = 640,
-            img_height = 480;
-string      frame_rate = "FRAMERATE_20";
+int         img_width  = 320,
+            img_height = 240;
+string      frame_rate = "FRAMERATE_15";
 
 void bumblebeeThread()
 {
@@ -45,7 +45,8 @@ void bumblebeeThread()
     bbGrabber.grabStereo(img_l,img_r);
     vo_mutex.unlock();
     // Start grabbing continuously
-    while(true){
+    while(true)
+    {
         bb_mutex.lock();
         bbGrabber.grabStereo(img_l,img_r);
         vo_mutex.unlock();
@@ -55,10 +56,6 @@ void bumblebeeThread()
 void stereoVO()
 {
 
-    // setup camera
-    PinholeStereoCamera* cam_pin;
-    cam_pin = new PinholeStereoCamera(img_width,img_height,K(0,0),K(1,1),K(0,2),K(1,2),b);
-
     // create scene
     sceneRepresentation scene("scene_config.ini");
     Matrix4d Tcw, Tfw = Matrix4d::Identity(), Tfw_prev = Matrix4d::Identity(), T_inc;
@@ -67,23 +64,30 @@ void stereoVO()
     Tcw = Matrix4d::Identity();
     scene.initializeScene(Tfw);
 
-    // initialize and run PL-StVO
+    // initialize
+    vo_mutex.lock();
+    PinholeStereoCamera* cam_pin = new PinholeStereoCamera(img_height,img_width,K(0,0),K(1,1),K(0,2),K(1,2),b);
+    StereoFrameHandler* StVO     = new StereoFrameHandler(cam_pin);
+    StVO->initialize(img_l,img_r,0);
+    bb_mutex.unlock();
+
+    // run PL-StVO
     mrpt::utils::CTicTac clock;
-    int frame_counter = 0;
-    StereoFrameHandler* StVO = new StereoFrameHandler(cam_pin);
+    int frame_counter = 1;
     while(true)
     {
         // Point-Line Tracking
         vo_mutex.lock();
         clock.Tic();
-        StVO->insertStereoPair( img_l, img_r, frame_counter, T_inc );
+        StVO->insertStereoPair( img_l, img_r, frame_counter );
+        bb_mutex.unlock();
         StVO->optimizePose();
         double t1 = 1000 * clock.Tac(); //ms
 
         // update scene
         scene.setText(frame_counter,t1,StVO->n_inliers_pt,StVO->matched_pt.size(),StVO->n_inliers_ls,StVO->matched_ls.size());
         scene.setCov( cov );
-        scene.setPose( T_inc );
+        scene.setPose( StVO->curr_frame->DT );
         scene.setImage( img_l );
         scene.updateScene();
 
@@ -97,11 +101,9 @@ void stereoVO()
 
         // update StVO
         StVO->updateFrame();
+        frame_counter++;
 
     }
-
-
-
 
 }
 
