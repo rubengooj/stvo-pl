@@ -34,7 +34,7 @@ Matrix3f    K;
 float       b;
 int         img_width  = 320,
             img_height = 240;
-string      frame_rate = "FRAMERATE_15";
+string      frame_rate = "FRAMERATE_30";
 
 void bumblebeeThread()
 {
@@ -57,7 +57,7 @@ void stereoVO()
 {
 
     // create scene
-    sceneRepresentation scene("scene_config.ini");
+    sceneRepresentation scene("../config/scene_config.ini");
     Matrix4d Tcw, Tfw = Matrix4d::Identity(), Tfw_prev = Matrix4d::Identity(), T_inc;
     Vector6d cov_eig;
     Matrix6d cov;

@@ -669,7 +669,7 @@ void sceneRepresentation::setLegend(){
 
     if(!hasGT) {
         if(hasComparison){
-            img_legend = "aux/legend_comp.png";
+            img_legend = "../config/aux/legend_comp.png";
             img_mrpt_legend.loadFromFile(img_legend,1);
             legend->setImageView_fast( img_mrpt_legend );
         }
@@ -677,12 +677,12 @@ void sceneRepresentation::setLegend(){
             img_mrpt_legend.loadFromFile("",1);
     }
     else if(hasComparison){
-        img_legend = "aux/legend_full.png";
+        img_legend = "../config/aux/legend_full.png";
         img_mrpt_legend.loadFromFile(img_legend,1);
         legend->setImageView_fast( img_mrpt_legend );
     }
     else{
-        img_legend = "aux/legend.png";
+        img_legend = "../config/aux/legend.png";
         img_mrpt_legend.loadFromFile(img_legend,1);
         legend->setImageView_fast( img_mrpt_legend );
     }
@@ -691,7 +691,7 @@ void sceneRepresentation::setLegend(){
 void sceneRepresentation::setHelp(){
     // Initialize the legend
     help = theScene->createViewport("help");
-    img_help = "aux/help.png";
+    img_help = "../config/aux/help.png";
     img_mrpt_help.loadFromFile(img_help,1);
     help->setImageView_fast( img_mrpt_help );
     if(hasHelp)
