@@ -27,9 +27,9 @@ StereoFrameHandler::StereoFrameHandler( PinholeStereoCamera *cam_ ) : cam(cam_) 
 
 StereoFrameHandler::~StereoFrameHandler(){}
 
-void StereoFrameHandler::initialize(const Mat &img_l_, const Mat &img_r_ , const int idx_)
+void StereoFrameHandler::initialize(const Mat img_l_, const Mat img_r_ , const int idx_)
 {
-    prev_frame = new StereoFrame( img_l_, img_r_, idx_, cam, Matrix4d::Identity() );
+    prev_frame = new StereoFrame( img_l_, img_r_, idx_, cam );
     prev_frame->extractInitialStereoFeatures();
     prev_frame->Tfw = Matrix4d::Identity();
     max_idx_pt = prev_frame->stereo_pt.size();  max_idx_pt_prev_kf = max_idx_pt;
@@ -37,16 +37,9 @@ void StereoFrameHandler::initialize(const Mat &img_l_, const Mat &img_r_ , const
     prev_keyframe = prev_frame;
 }
 
-void StereoFrameHandler::insertStereoPair(const Mat &img_l_, const Mat &img_r_ , const int idx_)
+void StereoFrameHandler::insertStereoPair(const Mat img_l_, const Mat img_r_ , const int idx_)
 {
     curr_frame = new StereoFrame( img_l_, img_r_, idx_, cam );
-    curr_frame->extractStereoFeatures();
-    f2fTracking();
-}
-
-void StereoFrameHandler::insertStereoPair(const Mat &img_l_, const Mat &img_r_ , const int idx_, Matrix4d DT_ini)
-{
-    curr_frame = new StereoFrame( img_l_, img_r_, idx_, cam, DT_ini );
     curr_frame->extractStereoFeatures();
     f2fTracking();
 }
@@ -253,16 +246,12 @@ void StereoFrameHandler::optimizePose()
     Matrix4d DT, DT_;
     double   err;
 
-    #pragma message("TODO: implement some logic to select the initial pose")
-    #pragma message("TODO: implement motion prior option")
     // set init pose    (depending on the values of DT_cov_eig)
     if( true )
     {
         DT     = prev_frame->DT;
         DT_cov = prev_frame->DT_cov;
     }
-
-    cout << endl << DT << endl << endl;
 
     // solver
     if( n_inliers > Config::minFeatures() )
@@ -333,8 +322,6 @@ void StereoFrameHandler::optimizePose(Matrix4d DT_ini)
     Matrix4d DT, DT_;
     double   err;
 
-    #pragma message("TODO: implement some logic to select the initial pose")
-    #pragma message("TODO: implement motion prior option")
     // set init pose    (depending on the values of DT_cov_eig)
     DT     = DT_ini;
     DT_cov = prev_frame->DT_cov;

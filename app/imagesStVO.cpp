@@ -210,7 +210,7 @@ int main(int argc, char **argv)
             #ifdef HAS_MRPT
             clock.Tic();
             #endif
-            StVO->insertStereoPair( img_l, img_r, frame_counter, T_inc );
+            StVO->insertStereoPair( img_l, img_r, frame_counter );
             if(Config::motionPrior())
                 StVO->setMotionPrior( logarithm_map(T_inc) , cov );
 

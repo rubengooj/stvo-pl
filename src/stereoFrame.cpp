@@ -25,11 +25,8 @@ namespace StVO{
 
 StereoFrame::StereoFrame(){}
 
-StereoFrame::StereoFrame(const Mat &img_l_, const Mat &img_r_ , const int idx_, PinholeStereoCamera *cam_) :
+StereoFrame::StereoFrame(const Mat img_l_, const Mat img_r_ , const int idx_, PinholeStereoCamera *cam_) :
     img_l(img_l_), img_r(img_r_), frame_idx(idx_), cam(cam_) {}
-
-StereoFrame::StereoFrame(const Mat &img_l_, const Mat &img_r_ , const int idx_, PinholeStereoCamera *cam_, Matrix4d DT_ini) :
-    img_l(img_l_), img_r(img_r_), frame_idx(idx_), cam(cam_), DT(DT_ini) {}
 
 StereoFrame::~StereoFrame(){}
 
@@ -411,6 +408,7 @@ void StereoFrame::detectFeatures(Mat img, vector<KeyPoint> &points, Mat &pdesc, 
         orb->detectAndCompute( img, Mat(), points, pdesc, false);
 
     // Detect line features
+    lines.clear();
     if( Config::hasLines() )
     {
         if( Config::useEDLines() )
@@ -425,27 +423,27 @@ void StereoFrame::detectFeatures(Mat img, vector<KeyPoint> &points, Mat &pdesc, 
             opts.minLineLen          = Config::edlMinLineLen();
             opts.lineFitErrThreshold = Config::edlFitErrTh();
 
-            BinaryDescriptor::EDLineDetector edl = BinaryDescriptor::EDLineDetector(opts);
+            BinaryDescriptor::EDLineDetector* edl = new BinaryDescriptor::EDLineDetector(opts);
             BinaryDescriptor::LineChains lines_;
 
-            edl.EDline(img,lines_);
-            lines.clear();
+            edl->EDline(img,lines_);
             int idx_aux = 0;
-            for(int i = 0; i < edl.lineEndpoints_.size(); i++)
+            for(int i = 0; i < edl->lineEndpoints_.size(); i++)
             {
                 KeyLine l_;
                 // estimate endpoints from LineChains
                 int s_idx = lines_.sId[i];
                 int e_idx = lines_.sId[i+1] - 1;
-                float sx  = edl.lineEndpoints_[i][0];
-                float sy  = edl.lineEndpoints_[i][1];
-                float ex  = edl.lineEndpoints_[i][2];
-                float ey  = edl.lineEndpoints_[i][3];
+                float sx  = edl->lineEndpoints_[i][0];
+                float sy  = edl->lineEndpoints_[i][1];
+                float ex  = edl->lineEndpoints_[i][2];
+                float ey  = edl->lineEndpoints_[i][3];
                 double line_length = sqrt( double( pow(ex-sx,2) + pow(ey-sy,2) ) );
+
                 // create keyline
                 if( line_length > min_line_length )
                 {
-                    l_.angle       = edl.lineDirection_[i];
+                    l_.angle       = edl->lineDirection_[i];
                     l_.startPointX = sx;    l_.sPointInOctaveX = sx;
                     l_.startPointY = sy;    l_.sPointInOctaveY = sy;
                     l_.endPointX   = ex;    l_.ePointInOctaveX = ex;
@@ -476,7 +474,6 @@ void StereoFrame::detectFeatures(Mat img, vector<KeyPoint> &points, Mat &pdesc, 
             opts.n_bins       = Config::lsdNBins();
             opts.min_length   = min_line_length;
 
-            lines.clear();
             lsd->detect( img, lines, 1, 1, opts);
             lbd->compute( img, lines, ldesc);
         }

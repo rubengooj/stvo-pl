@@ -38,9 +38,8 @@ public:
     StereoFrameHandler( PinholeStereoCamera* cam_ );
     ~StereoFrameHandler();
 
-    void initialize( const Mat& img_l_, const Mat& img_r_, const int idx_);
-    void insertStereoPair(const Mat& img_l_, const Mat& img_r_, const int idx_);
-    void insertStereoPair(const Mat& img_l_, const Mat& img_r_, const int idx_, Matrix4d DT_ini);
+    void initialize( const Mat img_l_, const Mat img_r_, const int idx_);
+    void insertStereoPair(const Mat img_l_, const Mat img_r_, const int idx_);
     void f2fTracking();
     void optimizePose();
     void optimizePose(Matrix4d DT_ini);

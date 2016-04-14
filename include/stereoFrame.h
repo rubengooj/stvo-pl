@@ -51,8 +51,7 @@ class StereoFrame
 public:
 
     StereoFrame();
-    StereoFrame( const Mat &img_l_, const Mat &img_r_, const int idx_, PinholeStereoCamera* cam_ );
-    StereoFrame( const Mat &img_l_, const Mat &img_r_, const int idx_, PinholeStereoCamera* cam_, Matrix4d DT_ini );
+    StereoFrame(const Mat img_l_, const Mat img_r_, const int idx_, PinholeStereoCamera* cam_ );
     ~StereoFrame();
 
     void extractStereoFeatures();

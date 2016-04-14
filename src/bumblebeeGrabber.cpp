@@ -50,7 +50,7 @@ bumblebeeGrabber::~bumblebeeGrabber(){
 
 void bumblebeeGrabber::grabStereo(Mat &imgLeft, Mat &imgRight){
     bb->getObservation(stereoObservation);
-    imgLeft  = cvarrToMat( stereoObservation.imageLeft.getAs<IplImage>() );
+    imgLeft  = cvarrToMat( stereoObservation.imageLeft.getAs<IplImage>()  );
     imgRight = cvarrToMat( stereoObservation.imageRight.getAs<IplImage>() );
 }
 
