@@ -19,7 +19,6 @@
 **																			**
 *****************************************************************************/
 
-#include <mutex>
 #include <bumblebeeGrabber.h>
 #include <stereoFrame.h>
 #include <stereoFrameHandler.h>
@@ -28,33 +27,18 @@
 
 using namespace StVO;
 
-Mat         img_l, img_r;
-mutex       bb_mutex, vo_mutex;
-Matrix3f    K;
-float       b;
-int         img_width  = 320,
-            img_height = 240;
-string      frame_rate = "FRAMERATE_30";
-
-void bumblebeeThread()
+int main(int argc, char **argv)
 {
+
     // Initialize the camera
-    bumblebeeGrabber bbGrabber(img_width,img_height,frame_rate);
-    bbGrabber.getCalib(K,b);
-    // Grab the first stereo frame
-    bbGrabber.grabStereo(img_l,img_r);
-    vo_mutex.unlock();
-    // Start grabbing continuously
-    while(true)
-    {
-        bb_mutex.lock();
-        bbGrabber.grabStereo(img_l,img_r);
-        vo_mutex.unlock();
-    }
-}
-
-void stereoVO()
-{
+    Mat         img_l, img_r;
+    Matrix3f    K;
+    float       b;
+    int         img_width  = 320,
+                img_height = 240;
+    string      frame_rate = "FRAMERATE_15";
+    bumblebeeGrabber* bbGrabber = new bumblebeeGrabber(img_width,img_height,frame_rate);
+    bbGrabber->getCalib(K,b);
 
     // create scene
     sceneRepresentation scene("../config/scene_config.ini");
@@ -65,11 +49,10 @@ void stereoVO()
     scene.initializeScene(Tfw);
 
     // initialize
-    vo_mutex.lock();
     PinholeStereoCamera* cam_pin = new PinholeStereoCamera(img_height,img_width,K(0,0),K(1,1),K(0,2),K(1,2),b);
     StereoFrameHandler* StVO     = new StereoFrameHandler(cam_pin);
+    bbGrabber->grabStereo(img_l,img_r);
     StVO->initialize(img_l,img_r,0);
-    bb_mutex.unlock();
 
     // run PL-StVO
     mrpt::utils::CTicTac clock;
@@ -77,10 +60,10 @@ void stereoVO()
     while(true)
     {
         // Point-Line Tracking
-        vo_mutex.lock();
         clock.Tic();
+        bbGrabber->grabStereo(img_l,img_r);
+        double t0 = 1000 * clock.Tac(); //ms
         StVO->insertStereoPair( img_l, img_r, frame_counter );
-        bb_mutex.unlock();
         StVO->optimizePose();
         double t1 = 1000 * clock.Tac(); //ms
 
@@ -95,7 +78,8 @@ void stereoVO()
         cout.setf(ios::fixed,ios::floatfield); cout.precision(8);
         cout << "Frame: " << frame_counter << " \t Residual error: " << StVO->curr_frame->err_norm;
         cout.setf(ios::fixed,ios::floatfield); cout.precision(3);
-        cout << " \t Proc. time: " << t1 << " ms\t ";
+        cout << " \t BB grabber time: " << t0 << " ms ";
+        cout << " \t Proc. time: " << t1-t0 << " ms\t ";
         cout << "\t Points: " << StVO->matched_pt.size() << " (" << StVO->n_inliers_pt << ") " <<
                 "\t Lines:  " << StVO->matched_ls.size() << " (" << StVO->n_inliers_ls << ") " << endl;
 
@@ -104,18 +88,6 @@ void stereoVO()
         frame_counter++;
 
     }
-
-}
-
-int main(int argc, char **argv){
-
-    vo_mutex.lock();
-    bb_mutex.lock();
-
-    thread bb(bumblebeeThread);
-    thread alg(stereoVO);
-    bb.join();
-    alg.join();
 
     return 0;
 

@@ -54,9 +54,6 @@ list(APPEND LINK_LIBS
 # Set source files 
 if(HAS_MRPT)
 list(APPEND SOURCEFILES
-  #src/kittiEvaluate.cpp
-  #src/evaluate_odometry.cpp
-  #src/matrix.cpp
   src/sceneRepresentation.cpp
   src/auxiliar.cpp
   src/bumblebeeGrabber.cpp

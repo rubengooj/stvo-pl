@@ -30,7 +30,7 @@ Config::Config()
     // -----------------------------------------------------------------------------------------------------
     has_points         = true;      // true if using points
     has_lines          = true;      // true if using line segments
-    use_edlines        = true;      // true if using EDLines false if using LSD
+    use_edlines        = false;      // true if using EDLines false if using LSD
     lr_in_parallel     = true;      // true if detecting and matching features in parallel
     best_lr_matches    = true;      // true if double-checking the matches between the two images
     use_lev_marquardt  = false;     // true if Levenberg-Marquardt false if Gauss-Newton
