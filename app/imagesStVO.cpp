@@ -32,7 +32,6 @@
 #include <boost/filesystem.hpp>
 #include <yaml-cpp/yaml.h>
 
-
 using namespace StVO;
 
 int main(int argc, char **argv)
@@ -151,9 +150,6 @@ int main(int argc, char **argv)
 
     // ground truth file
     string gt_name = dataset_dir + "/groundtruth.txt";
-
-    cout << endl << gt_name << endl;
-
     vector<Matrix4d> GTposes;
     if( true ){
         FILE *fp = fopen(gt_name.c_str(),"r");
@@ -168,7 +164,6 @@ int main(int argc, char **argv)
                            &P(1,0), &P(1,1), &P(1,2), &P(1,3),
                            &P(2,0), &P(2,1), &P(2,2), &P(2,3) )==12)
             {
-
                 GTposes.push_back( P.cast<double>() );
             }
         }
@@ -182,7 +177,7 @@ int main(int argc, char **argv)
     Tcw = Matrix4d::Identity();
     Tcw << 1, 0, 0, 0, 0, 0, 1, 0, 0, -1, 0, 0, 0, 0, 0, 1;
     #ifdef HAS_MRPT
-    sceneRepresentation* scene = new sceneRepresentation("scene_config.ini");
+    sceneRepresentation* scene = new sceneRepresentation("../config/scene_config.ini");
     scene->initializeScene(Tcw);
     mrpt::utils::CTicTac clock;
     #endif
@@ -211,8 +206,6 @@ int main(int argc, char **argv)
             clock.Tic();
             #endif
             StVO->insertStereoPair( img_l, img_r, frame_counter );
-            if(Config::motionPrior())
-                StVO->setMotionPrior( logarithm_map(T_inc) , cov );
 
             // set GT initial pose
             Matrix4d gt_inc = inverse_transformation( GTposes[frame_counter] ) * GTposes[frame_counter-1];
