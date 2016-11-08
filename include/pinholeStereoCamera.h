@@ -38,23 +38,29 @@ class PinholeStereoCamera
 
 private:
     const int           width, height;
-    const double        fx, fy;
-    const double        cx, cy;
+    double              fx, fy;
+    double              cx, cy;
     const double        b;
     Matrix3d            K;
     bool                dist;
     Matrix<double,5,1>  d;
-    Mat                 Kcv, Dcv;
-    Mat                 undistmap1, undistmap2;
+    Mat                 Kl, Kr, Dl, Dr, Rl, Rr, Pl, Pr;
+    Mat                 undistmap1l, undistmap2l, undistmap1r, undistmap2r;
 
 public:
 
     PinholeStereoCamera( int width_, int height_, double fx_, double fy_, double cx_, double cy_, double b_,
                          double d0 = 0.0, double d1 = 0.0, double d2 = 0.0, double d3 = 0.0, double d4 = 0.0);
+    PinholeStereoCamera( int width_, int height_, double fx_, double fy_, double cx_, double cy_, double b_, Mat Rl, Mat Rr,
+                         double d0 = 0.0, double d1 = 0.0, double d2 = 0.0, double d3 = 0.0, double d4 = 0.0);
+
+    PinholeStereoCamera(int width_, int height_, double b_, Mat Kl_, Mat Kr_, Mat Rl_, Mat Rr_, Mat Dl_, Mat Dr_);
+
     ~PinholeStereoCamera();
 
     // Image rectification
     void rectifyImage( const Mat& img_src, Mat& img_rec);
+    void rectifyImagesLR( const Mat& img_src_l, Mat& img_rec_l, const Mat& img_src_r, Mat& img_rec_r );
 
     // Proyection and Back-projection
     Vector3d backProjection_unit(const double &u, const double &v, const double &disp, double &depth);
@@ -70,6 +76,7 @@ public:
     inline const double       getB()        const { return b; };
     inline const Matrix<double,5,1> getD()  const { return d; };
     inline const double getFx()             const { return fx; };
+    inline const double getFy()             const { return fy; };
     inline const double getCx()             const { return cx; };
     inline const double getCy()             const { return cy; };
 

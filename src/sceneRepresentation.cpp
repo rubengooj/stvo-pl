@@ -48,6 +48,7 @@ sceneRepresentation::sceneRepresentation(){
     slinef  = 0.1f;
     win     = new CDisplayWindow3D("3D Scene",1920,1080);
 
+    hasCamFix       = true;
     hasText         = true;
     hasAxes         = false;
     hasLegend       = false;
@@ -81,6 +82,7 @@ sceneRepresentation::sceneRepresentation(string configFile){
     slinef          = config.read_double("Scene","slinef",0.1f);
     win             = new CDisplayWindow3D("3D Scene",1920,1080);
 
+    hasCamFix       = config.read_bool("Scene","hasCamFix",true);
     hasText         = config.read_bool("Scene","hasText",true);
     hasAxes         = config.read_bool("Scene","hasAxes",true);
     hasLegend       = config.read_bool("Scene","hasLegend",false);
@@ -109,13 +111,15 @@ sceneRepresentation::~sceneRepresentation(){
 
 // Initialize the scene
 
-void sceneRepresentation::initializeScene(Matrix4d x_0){
+void sceneRepresentation::initializeScene(Matrix4d x_0, bool has_gt){
 
     // Initialize the scene and window
     win->setCameraElevationDeg(selev);
     win->setCameraAzimuthDeg(sazim);
     win->setCameraZoom(szoom);
     theScene = win->get3DSceneAndLock();
+
+    hasGT = has_gt;
 
     // Initialize poses of different objects
     if(hasChange)
@@ -172,7 +176,7 @@ void sceneRepresentation::initializeScene(Matrix4d x_0){
     }
 
     // Initialize the ground truth camera object
-    if(hasGT){
+    if( hasGT ){
         gtObj = opengl::stock_objects::BumblebeeCamera();
         {
             gtObj->setPose(pose_ini);
@@ -206,7 +210,7 @@ void sceneRepresentation::initializeScene(Matrix4d x_0){
     // Initialize the text
     if(hasText){
         string text = "Frame: \t \t0 \nFrequency: \t0 Hz \nLines:  \t0 (0)\nPoints: \t0 (0)";
-        win->addTextMessage(0.85,0.95, text, TColorf(1.0,1.0,1.0), 0, mrpt::opengl::MRPT_GLUT_BITMAP_HELVETICA_10 );
+        win->addTextMessage(0.85,0.95, text, TColorf(.0,.0,.0), 0, mrpt::opengl::MRPT_GLUT_BITMAP_HELVETICA_10 );
     }
 
     // Initialize the covariance ellipse
@@ -294,6 +298,10 @@ bool sceneRepresentation::updateScene(){
         frustObj1->setPose(pose+frustumR_);
     }
 
+    // Set camera pointing to the current trajectory
+    if(hasCamFix)
+        win->setCameraPointingToPoint(v_aux(0),v_aux(1),v_aux(2));
+
     // Update the GT camera pose
     if(hasGT){
         CPose3D x_auxgt(getPoseFormat(xgt));
@@ -343,7 +351,7 @@ bool sceneRepresentation::updateScene(){
     // Update the text
     if(hasText){
         string text = "Frame: \t \t" + to_string(frame) + " \n" + "Frequency: \t" + to_string_with_precision(1000.f/time,4) + " Hz \n" + "Lines:  \t" + to_string(nLines) + " (" + to_string(nLinesH) + ") \nPoints: \t" + to_string(nPoints) + " (" + to_string(nPointsH) + ")";
-        win->addTextMessage(0.85,0.95, text, TColorf(1.0,1.0,1.0), 0, mrpt::opengl::MRPT_GLUT_BITMAP_HELVETICA_10 );
+        win->addTextMessage(0.85,0.95, text, TColorf(.0,.0,.0), 0, mrpt::opengl::MRPT_GLUT_BITMAP_HELVETICA_10 );
     }
 
     // Update the covariance
@@ -385,11 +393,11 @@ bool sceneRepresentation::updateScene(){
         key = win->getPushedKey(&kmods);
         if(key == MRPTK_SPACE){                     // Space    Reset VO
             theScene->clear();
-            initializeScene(x_ini);
+            initializeScene(x_ini,false);
         }
         else if (key == MRPTK_ESCAPE){              // Esc      Restart VO
             theScene->clear();
-            initializeScene(x_ini);
+            initializeScene(x_ini,false);
             restart = true;
         }
         else if ( (key == 104) || (key == 72) ){    // H        help
@@ -496,6 +504,265 @@ bool sceneRepresentation::updateScene(){
         }
         else if ( (key == 105) || (key == 73) ){    // I        image
             hasImg   = !hasImg;          
+            if(isKitti){
+                if(hasImg)
+                    image->setViewportPosition(20, 20, 621, 188);
+                else
+                    image->setViewportPosition(2000, 2000, 621, 188);
+            }
+            else{
+                if(hasImg)
+                    image->setViewportPosition(20, 20, 400, 300);
+                else
+                    image->setViewportPosition(2000, 2000, 400, 300);
+            }
+
+        }
+    }
+
+    return restart;
+
+}
+
+bool sceneRepresentation::updateScene( list<PointFeature*> matched_pt ){
+
+    theScene = win->get3DSceneAndLock();
+    bool restart = false;
+
+    // Update camera pose
+    CPose3D x_aux(getPoseFormat(x));
+    pose = pose + x_aux;
+    v_aux_ = v_aux;
+    pose.getAsVector(v_aux);
+    if(hasTraj){
+        opengl::CSimpleLinePtr obj = opengl::CSimpleLine::Create();
+        obj->setLineCoords(v_aux_(0),v_aux_(1),v_aux_(2), v_aux(0),v_aux(1),v_aux(2));
+        obj->setLineWidth(sline);
+        obj->setColor(0,0,0.7);
+        theScene->insert( obj );
+    }
+    bbObj->setPose(pose);
+    srefObj->setPose(pose);
+    if(hasFrustum){
+        frustObj->setPose(pose+frustumL_);
+        frustObj1->setPose(pose+frustumR_);
+    }
+
+    // Set camera pointing to the current trajectory
+    if(hasCamFix)
+        win->setCameraPointingToPoint(v_aux(0),v_aux(1),v_aux(2));
+
+    // Update the GT camera pose
+    if(hasGT){
+        CPose3D x_auxgt(getPoseFormat(xgt));
+        //pose_gt = pose_gt + x_auxgt;
+        pose_gt = x_auxgt;
+        v_auxgt_ = v_auxgt;
+
+        pose_gt.getAsVector(v_auxgt);
+        float y_ = v_auxgt(1);
+        float z_ = v_auxgt(2);
+        float b_ = v_auxgt(4);
+        float c_ = v_auxgt(5);
+        v_auxgt(1) =  z_;
+        v_auxgt(2) = -y_;
+        v_auxgt(4) = -c_;
+        v_auxgt(5) =  b_;
+        pose_gt = TPose3D(v_auxgt(0),v_auxgt(1),v_auxgt(2),v_auxgt(3),v_auxgt(4),v_auxgt(5));
+
+        if(hasTraj){
+            opengl::CSimpleLinePtr obj = opengl::CSimpleLine::Create();
+            obj->setLineCoords(v_auxgt_(0),v_auxgt_(1),v_auxgt_(2), v_auxgt(0),v_auxgt(1),v_auxgt(2));
+            obj->setLineWidth(sline);
+            obj->setColor(0,0,0);
+            theScene->insert( obj );
+        }
+        gtObj->setPose(pose_gt);
+        srefObjGT->setPose(pose_gt);
+    }
+
+    // Update the comparison camera pose
+    if(hasComparison){
+        CPose3D x_aux1(getPoseFormat(xcomp));
+        pose1 = pose1 + x_aux1;
+        v_aux1_ = v_aux1;
+        pose1.getAsVector(v_aux1);
+        if(hasTraj){
+            opengl::CSimpleLinePtr obj = opengl::CSimpleLine::Create();
+            obj->setLineCoords(v_aux1_(0),v_aux1_(1),v_aux1_(2), v_aux1(0),v_aux1(1),v_aux1(2));
+            obj->setLineWidth(sline);
+            obj->setColor(0,0.7,0);
+            theScene->insert( obj );
+        }
+        bbObj1->setPose(pose1);
+        srefObj1->setPose(pose1);
+    }
+
+    // Update the text
+    if(hasText){
+        string text = "Frame: \t \t" + to_string(frame) + " \n" + "Frequency: \t" + to_string_with_precision(1000.f/time,4) + " Hz \n" + "Lines:  \t" + to_string(nLines) + " (" + to_string(nLinesH) + ") \nPoints: \t" + to_string(nPoints) + " (" + to_string(nPointsH) + ")";
+        win->addTextMessage(0.85,0.95, text, TColorf(.0,.0,.0), 0, mrpt::opengl::MRPT_GLUT_BITMAP_HELVETICA_10 );
+    }
+
+    // Update the covariance
+    if(hasCov){
+        elliObj->setPose(pose+ellPose);
+        elliObj->setCovMatrix(getCovFormat(cov));
+    }
+
+    // Update the image
+    if(hasImg){
+        image->setImageView_fast( img_mrpt_image );
+        //image->setImageView( img_mrpt_image );
+    }
+
+    // Update the lines
+    lineObj->clear();
+    if(hasLines){
+        plotLinesCovariances();
+        for(int i = 0; i < size(lData,2); i++)
+            lineObj->appendLine(lData(0,i),lData(1,i),lData(2,i), lData(3,i),lData(4,i),lData(5,i));
+        lineObj->setPose(pose);
+    }
+
+    // Update the points
+    pointObj->clear();
+    if(hasPoints){
+        /*CPointCloudColouredPtr map_points = CPointCloudColoured::Create();
+        map_points->setPointSize(2);
+        map_points->enablePointSmooth(1);
+        map_points->setPose(pose);
+
+        for( auto it = matched_pt.begin(); it != matched_pt.end(); it++ ){
+            map_points->setPo
+        }
+        theScene->insert( map_points );*/
+        plotPointsCovariances();
+        for(int i = 0; i < size(pData,2); i++)
+            pointObj->insertPoint(pData(0,i),pData(1,i),pData(2,i));
+        pointObj->setPose(pose);
+    }
+
+    // Re-paint the scene
+    win->unlockAccess3DScene();
+    win->repaint();
+
+    // Key events   -       TODO: change the trick to employ viewports
+    if(win->keyHit()){
+        key = win->getPushedKey(&kmods);
+        if(key == MRPTK_SPACE){                     // Space    Reset VO
+            theScene->clear();
+            initializeScene(x_ini,false);
+        }
+        else if (key == MRPTK_ESCAPE){              // Esc      Restart VO
+            theScene->clear();
+            initializeScene(x_ini,false);
+            restart = true;
+        }
+        else if ( (key == 104) || (key == 72) ){    // H        help
+            hasHelp   = !hasHelp;
+            if(!hasHelp)
+                help->setViewportPosition(2000, 2000, 300, 376);
+            else
+                help->setViewportPosition(1600, 20, 300, 376);
+        }
+        else if ( (key == 103) || (key == 71) ){    // G        legend
+            hasLegend   = !hasLegend;
+            if(!hasLegend)
+                legend->setViewportPosition(2000, 2000, 250, 97);
+            else
+                legend->setViewportPosition(20, 900, 250, 97);
+        }
+        else if ( (key ==  97) || (key == 65) ){    // A        axes
+            hasAxes   = !hasAxes;
+            if(!hasAxes){
+                axesObj.clear();
+            }
+            else{
+                axesObj = opengl::CAxis::Create();
+                axesObj->setFrequency(sfreq);
+                axesObj->enableTickMarks(false);
+                axesObj->setAxisLimits(-saxis,-saxis,-saxis, saxis,saxis,saxis);
+                theScene->insert( axesObj );
+            }
+        }
+        else if ( (key == 102) || (key == 70) ){    // F        frustum
+            hasFrustum   = !hasFrustum;
+            if(!hasFrustum){
+                frustObj.clear();
+                frustObj1.clear();
+            }
+            else{
+                frustObj = opengl::CFrustum::Create();
+                frustObj->setLineWidth (slinef);
+                frustObj->setScale(sfrust);
+                frustObj->setPose(pose+frustumL_);
+                theScene->insert(frustObj);
+                frustObj1 = opengl::CFrustum::Create();
+                frustObj1->setLineWidth (slinef);
+                frustObj1->setScale(sfrust);
+                frustObj1->setPose(pose+frustumR_);
+                theScene->insert(frustObj1);
+            }
+        }
+        else if ( (key == 112) || (key == 80) ){    // P        points
+            hasPoints = !hasPoints;
+            if(!hasPoints){
+                elliObjP.clear();
+            }
+            else{
+                elliObjP = opengl::CSetOfObjects::Create();
+                elliObjP->setScale(selli);
+                elliObjP->setPose(pose);
+                theScene->insert(elliObjP);
+            }
+        }
+        else if ( (key == 108) || (key == 76) ){    // L        lines
+            hasLines  = !hasLines;
+            if(!hasLines){
+                elliObjL.clear();
+            }
+            else{
+                elliObjL = opengl::CSetOfObjects::Create();
+                elliObjL->setScale(selli);
+                elliObjL->setPose(pose);
+                theScene->insert(elliObjL);
+            }
+        }
+        else if ( (key == 116) || (key == 84) ){    // T        text
+            hasText  = !hasText;
+            if(!hasText){
+                string text = "";
+                win->addTextMessage(0.85,0.95, text, TColorf(1.0,1.0,1.0), 0, mrpt::opengl::MRPT_GLUT_BITMAP_HELVETICA_10 );
+            }
+        }
+        else if ( (key ==  99) || (key == 67) ){    // C        covariance
+            hasCov   = !hasCov;
+            if(!hasCov){
+                elliObj.clear();
+            }
+            else{
+                elliObj = opengl::CEllipsoid::Create();
+                elliObj->setScale(selli);
+                elliObj->setQuantiles(2.0);
+                elliObj->setColor(0,0.3,0);
+                elliObj->enableDrawSolid3D(true);
+                elliObj->setPose(pose);
+                theScene->insert(elliObj);
+            }
+        }
+        else if (  key == 43){                      // +        Increases the scale of the covariance ellipse
+            selli += 0.5f;
+            if(hasCov)
+                elliObj->setScale(selli);
+        }
+        else if (  key == 45){                      // -        Decreases the scale of the covariance ellipse
+            selli -= 0.5f;
+            if(hasCov)
+                elliObj->setScale(selli);
+        }
+        else if ( (key == 105) || (key == 73) ){    // I        image
+            hasImg   = !hasImg;
             if(isKitti){
                 if(hasImg)
                     image->setViewportPosition(20, 20, 621, 188);
@@ -718,6 +985,27 @@ void sceneRepresentation::setStereoCalibration(Matrix3d K_, float b_){
 
     bsigmaL = b*b*sigmaL*sigmaL;
     bsigmaP = b*b*sigmaP*sigmaP;
+}
+
+void sceneRepresentation::setKF(){
+    // Initialize the camera object (set KF with the current pose)
+    opengl::CSetOfObjectsPtr kfbb = opengl::stock_objects::BumblebeeCamera();
+    {
+        kfbb->setPose( pose );
+        kfbb->setScale(sbb*3);
+        theScene->insert(kfbb);
+    }
+}
+
+void sceneRepresentation::setKF(Matrix4d Tfw){
+    // Initialize the camera object
+    opengl::CSetOfObjectsPtr kfbb = opengl::stock_objects::BumblebeeCamera();
+    {
+        //CPose3D pose( getPoseFormat(Tfw) );
+        kfbb->setPose( pose );
+        kfbb->setScale(sbb*10);
+        theScene->insert(kfbb);
+    }
 }
 
 // Public methods

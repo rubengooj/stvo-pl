@@ -39,14 +39,16 @@ int main(int argc, char **argv)
     string      frame_rate = "FRAMERATE_15";
     bumblebeeGrabber* bbGrabber = new bumblebeeGrabber(img_width,img_height,frame_rate);
     bbGrabber->getCalib(K,b);
+    bbGrabber->grabStereo(img_l,img_r);
 
     // create scene
-    sceneRepresentation scene("../config/scene_config.ini");
+    sceneRepresentation scene("../config/bb_scene_config.ini");
     Matrix4d Tcw, Tfw = Matrix4d::Identity(), Tfw_prev = Matrix4d::Identity(), T_inc;
     Vector6d cov_eig;
     Matrix6d cov;
     Tcw = Matrix4d::Identity();
-    scene.initializeScene(Tfw);
+    Tcw << 1, 0, 0, 0, 0, 0, 1, 0, 0, -1, 0, 0, 0, 0, 0, 1;
+    scene.initializeScene(Tcw,false);
 
     // initialize
     PinholeStereoCamera* cam_pin = new PinholeStereoCamera(img_height,img_width,K(0,0),K(1,1),K(0,2),K(1,2),b);
@@ -71,7 +73,9 @@ int main(int argc, char **argv)
         scene.setText(frame_counter,t1,StVO->n_inliers_pt,StVO->matched_pt.size(),StVO->n_inliers_ls,StVO->matched_ls.size());
         scene.setCov( cov );
         scene.setPose( StVO->curr_frame->DT );
-        scene.setImage( img_l );
+        imwrite("../config/aux/img_aux.png",StVO->curr_frame->plotStereoFrame());
+        scene.setImage( "../config/aux/img_aux.png" );
+        //scene.setImage( img_l );
         scene.updateScene();
 
         // console output

@@ -23,14 +23,49 @@
 
 PinholeStereoCamera::PinholeStereoCamera( int width_, int height_, double fx_, double fy_, double cx_, double cy_, double b_,
                                           double d0, double d1, double d2, double d3, double d4) :
-    width(width_), height(height_), fx(fx_), fy(fy_), cx(cx_), cy(cy_), b(b_), dist( d0 == 0.0 )
+    width(width_), height(height_), fx(fx_), fy(fy_), cx(cx_), cy(cy_), b(b_), dist( d0 != 0.0 )
 {
     d   << d0, d1, d2, d3, d4;
-    Kcv  = ( Mat_<float>(3,3) << fx, 0.0, cx, 0.0, fy, cy, 0.0, 0.0, 1.0 );
-    Dcv  = ( Mat_<float>(1,5) << d(0), d(1), d(2), d(3), d(4) );
+    Kl = ( Mat_<float>(3,3) << fx, 0.0, cx, 0.0, fy, cy, 0.0, 0.0, 1.0 );
+    Dl = ( Mat_<float>(1,5) << d(0), d(1), d(2), d(3), d(4) );
+    Pl = ( Mat_<float>(3,4) << fx, 0.0, cx, 0.0,   0.0, fx, cy, 0.0,   0.0, 0.0, 1.0, 0.0 );
     K    << fx, 0.0, cx, 0.0, fy, cy, 0.0, 0.0, 1.0;
     // initialize undistort rectify map OpenCV
-    initUndistortRectifyMap( Kcv, Dcv, cv::Mat_<double>::eye(3,3), Kcv, cv::Size(width,height), CV_16SC2, undistmap1, undistmap2 );
+    initUndistortRectifyMap( Kl, Dl, cv::Mat_<double>::eye(3,3), Pl, cv::Size(width,height), CV_16SC2, undistmap1l, undistmap2l );
+    undistmap1r = undistmap1l;
+    undistmap2r = undistmap2l;
+}
+
+PinholeStereoCamera::PinholeStereoCamera( int width_, int height_, double fx_, double fy_, double cx_, double cy_, double b_, Mat Rl_, Mat Rr_,
+                                          double d0, double d1, double d2, double d3, double d4 ) :
+    width(width_), height(height_), fx(fx_), fy(fy_), cx(cx_), cy(cy_), b(b_), dist( d0 != 0.0 ), Rl(Rl_), Rr(Rr_)
+{
+    d   << d0, d1, d2, d3, d4;
+    Kl = ( Mat_<float>(3,3) << fx, 0.0, cx, 0.0, fy, cy, 0.0, 0.0, 1.0 );
+    Dl = ( Mat_<float>(1,5) << d(0), d(1), d(2), d(3), d(4) );
+    K    << fx, 0.0, cx, 0.0, fy, cy, 0.0, 0.0, 1.0;
+    // initialize undistort rectify map OpenCV
+    initUndistortRectifyMap( Kl, Dl, Rl, Pl, cv::Size(width,height), CV_16SC2, undistmap1l, undistmap2l );
+    initUndistortRectifyMap( Kr, Dr, Rr, Pr, cv::Size(width,height), CV_16SC2, undistmap1r, undistmap2r );
+}
+
+
+PinholeStereoCamera::PinholeStereoCamera( int width_, int height_, double b_, Mat Kl_, Mat Kr_, Mat Rl_, Mat Rr_, Mat Dl_, Mat Dr_) :
+    width(width_), height(height_), Kl(Kl_), Kr(Kr_), b(b_), Rl(Rl_), Rr(Rr_), Dl(Dl_), Dr(Dr_)
+{
+    fx = Kl.at<float>(0,0);
+    fy = Kl.at<float>(0,0);
+    cx = Kl.at<float>(0,2);
+    cy = Kl.at<float>(1,2);
+    Pl = ( Mat_<float>(3,4) << fx, 0.0, cx,   0.0,   0.0, fx, cy, 0.0,   0.0, 0.0, 1.0, 0.0 );
+    Pr = ( Mat_<float>(3,4) << fx, 0.0, cx, -b*fx,   0.0, fx, cy, 0.0,   0.0, 0.0, 1.0, 0.0 );
+    K    << fx, 0.0, cx, 0.0, fx, cy, 0.0, 0.0, 1.0;
+    // initialize undistort rectify map OpenCV
+    initUndistortRectifyMap( Kl, Dl, Rl, Pl, cv::Size(width,height), CV_16SC2, undistmap1l, undistmap2l );
+    initUndistortRectifyMap( Kr, Dr, Rr, Pr, cv::Size(width,height), CV_16SC2, undistmap1r, undistmap2r );
+
+    dist = true;
+
 }
 
 PinholeStereoCamera::~PinholeStereoCamera() {};
@@ -38,9 +73,23 @@ PinholeStereoCamera::~PinholeStereoCamera() {};
 void PinholeStereoCamera::rectifyImage( const Mat& img_src, Mat& img_rec)
 {
     if(dist)
-      remap( img_src, img_rec, undistmap1, undistmap2, cv::INTER_LINEAR);
+      remap( img_src, img_rec, undistmap1l, undistmap2l, cv::INTER_LINEAR);
     else
       img_rec = img_src.clone();
+}
+
+void PinholeStereoCamera::rectifyImagesLR( const Mat& img_src_l, Mat& img_rec_l, const Mat& img_src_r, Mat& img_rec_r )
+{
+    if(dist)
+    {
+        remap( img_src_l, img_rec_l, undistmap1l, undistmap2l, cv::INTER_LINEAR);
+        remap( img_src_r, img_rec_r, undistmap1r, undistmap2r, cv::INTER_LINEAR);
+    }
+    else
+    {
+        img_rec_l = img_src_l.clone();
+        img_rec_r = img_src_r.clone();
+    }
 }
 
 // Proyection and Back-projection (internally we are supposed to work with rectified images because of the line segments)
@@ -86,5 +135,3 @@ Vector2d PinholeStereoCamera::nonHomogeneous( Vector3d x)
     Vector2d x_; x_ << x(0) / x(2), x(1) / x(2);
     return x_;
 }
-
-

@@ -52,6 +52,7 @@ public:
 
     StereoFrame();
     StereoFrame(const Mat img_l_, const Mat img_r_, const int idx_, PinholeStereoCamera* cam_ );
+    StereoFrame(const Mat img_l_, const Mat img_r_, const Mat img_s_, const int idx_, PinholeStereoCamera* cam_ );
     ~StereoFrame();
 
     void extractStereoFeatures();
@@ -59,13 +60,20 @@ public:
     void detectFeatures(Mat img, vector<KeyPoint> &points, Mat &pdesc, vector<KeyLine> &lines, Mat &ldesc, double min_line_length);
     void matchPointFeatures(BFMatcher* bfm, Mat pdesc_1, Mat pdesc_2, vector<vector<DMatch>> &pmatches_12);
     void matchLineFeatures(Ptr<BinaryDescriptorMatcher> bdm, Mat ldesc_1, Mat ldesc_2, vector<vector<DMatch>> &lmatches_12 );
+    void matchLineFeaturesBFM(BFMatcher* bfm, Mat ldesc_1, Mat ldesc_2, vector<vector<DMatch>> &lmatches_12 );
     void pointDescriptorMAD( const vector<vector<DMatch>> matches, double &nn_mad, double &nn12_mad );
     void lineDescriptorMAD( const vector<vector<DMatch>> matches, double &nn_mad, double &nn12_mad );
+    Mat  plotStereoFrame();
 
     int frame_idx;
-    Mat img_l, img_r;
+    Mat img_l, img_r, img_s;
     Matrix4d Tfw;
     Matrix4d DT;
+
+    Matrix6d Tfw_cov;
+    Vector6d Tfw_cov_eig;
+    double   entropy_first;
+
     Matrix6d DT_cov;
     Vector6d DT_cov_eig;
     double   err_norm;

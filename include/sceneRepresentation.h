@@ -26,18 +26,25 @@ using namespace std;
 #include <mrpt/gui.h>
 #include <mrpt/utils/CConfigFile.h>
 #include <mrpt/utils/CConfigFileBase.h>
+#include <mrpt/maps/CPointsMap.h>
+#include <mrpt/maps/CColouredPointsMap.h>
+#include <mrpt/maps/CSimplePointsMap.h>
 using namespace mrpt;
 using namespace mrpt::gui;
 using namespace mrpt::poses;
 using namespace mrpt::utils;
 using namespace mrpt::math;
 using namespace mrpt::opengl;
+using namespace mrpt::maps;
 
 #include <opencv/cv.h>
 using namespace cv;
 
 #include <eigen3/Eigen/Core>
 using namespace Eigen;
+
+#include <stereoFeatures.h>
+using namespace StVO;
 
 class sceneRepresentation{
 
@@ -51,10 +58,11 @@ public:
     void initialize3DSceneImg(Matrix4d x_0);
     void initialize3DSceneGT(Matrix4d x_0);
 
-    void initializeScene(Matrix4d x_0);
+    void initializeScene(Matrix4d x_0, bool has_gt);
     void initializeScene(Matrix4d x_0, Matrix4d x_0gt);
 
     bool updateScene();
+    bool updateScene(list<PointFeature *> matched_pt);
     void plotPointsCovariances();
     void plotLinesCovariances();
 
@@ -70,7 +78,8 @@ public:
     void setPoints(CMatrixFloat pData_);
     void setLines(CMatrixFloat lData_);
     void setStereoCalibration(Matrix3d K_, float b_);
-
+    void setKF();
+    void setKF(Matrix4d Tfw);
 
     bool waitUntilClose();
     bool isOpen();
@@ -90,6 +99,9 @@ private:
     opengl::CEllipsoidPtr       elliObj;
     opengl::CSetOfLinesPtr      lineObj;
     opengl::CPointCloudPtr      pointObj;
+
+    //CPointsMapPtr pointsObj;
+
     opengl::CFrustumPtr         frustObj, frustObj1;
     opengl::CAxisPtr            axesObj;
 
@@ -101,7 +113,7 @@ private:
     mrptKeyModifier kmods;
     int             key;
     CMatrixDouble33 cov3D;
-    bool            hasText, hasCov, hasGT, hasChange, hasImg, hasLines, hasPoints, hasFrustum, hasComparison, hasLegend, hasHelp, hasAxes, hasTraj, isKitti;
+    bool            hasCamFix, hasText, hasCov, hasGT, hasChange, hasImg, hasLines, hasPoints, hasFrustum, hasComparison, hasLegend, hasHelp, hasAxes, hasTraj, isKitti;
 
     Matrix4d        x, xgt, xcomp;
     MatrixXd        cov, W;

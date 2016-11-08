@@ -32,9 +32,10 @@ void StereoFrameHandler::initialize(const Mat img_l_, const Mat img_r_ , const i
     prev_frame = new StereoFrame( img_l_, img_r_, idx_, cam );
     prev_frame->extractInitialStereoFeatures();
     prev_frame->Tfw = Matrix4d::Identity();
+    prev_frame->Tfw_cov = Matrix6d::Identity();
+    prev_frame->DT  = Matrix4d::Identity();
     max_idx_pt = prev_frame->stereo_pt.size();  max_idx_pt_prev_kf = max_idx_pt;
     max_idx_ls = prev_frame->stereo_ls.size();  max_idx_ls_prev_kf = max_idx_ls;
-    prev_keyframe = prev_frame;
 }
 
 void StereoFrameHandler::insertStereoPair(const Mat img_l_, const Mat img_r_ , const int idx_)
@@ -61,8 +62,8 @@ void StereoFrameHandler::f2fTracking()
         {
             if( Config::lrInParallel() )
             {
-                auto match_l = async( launch::async, &StereoFrameHandler::matchPointFeatures, this, bfm, pdesc_l1, pdesc_l2, ref(pmatches_12) );
-                auto match_r = async( launch::async, &StereoFrameHandler::matchPointFeatures, this, bfm, pdesc_l2, pdesc_l1, ref(pmatches_21) );
+                auto match_l = async( launch::async, &StereoFrame::matchPointFeatures, prev_frame, bfm, pdesc_l1, pdesc_l2, ref(pmatches_12) );
+                auto match_r = async( launch::async, &StereoFrame::matchPointFeatures, prev_frame, bfm, pdesc_l2, pdesc_l1, ref(pmatches_21) );
                 match_l.wait();
                 match_r.wait();
             }
@@ -110,22 +111,22 @@ void StereoFrameHandler::f2fTracking()
                 matched_pt.push_back( point_ );                
                 curr_frame->stereo_pt[lr_tdx]->idx = prev_frame->stereo_pt[lr_qdx]->idx; // prev idx
             }
-            else
+            /*else
             {
                 curr_frame->stereo_pt[lr_tdx]->idx = max_idx_pt;
                 max_idx_pt++;
-            }
+            }*/
         }
 
         // put index on the rest of the features
-        for( int i = 0; i < curr_frame->stereo_pt.size(); i++)
+        /*for( int i = 0; i < curr_frame->stereo_pt.size(); i++)
         {
             if( curr_frame->stereo_pt[i]->idx == -1 )
             {
                 curr_frame->stereo_pt[i]->idx = max_idx_pt;
                 max_idx_pt++;
             }
-        }
+        }*/
 
     }
 
@@ -134,28 +135,52 @@ void StereoFrameHandler::f2fTracking()
     if( Config::hasLines() && !(curr_frame->stereo_ls.size()==0) && !(prev_frame->stereo_ls.size()==0)  )
     {
         Ptr<BinaryDescriptorMatcher> bdm = BinaryDescriptorMatcher::createBinaryDescriptorMatcher();
+        BFMatcher* bfm = new BFMatcher( NORM_HAMMING, false );    // cross-check
         Mat ldesc_l1, ldesc_l2;
         vector<vector<DMatch>> lmatches_12, lmatches_21;
         // 12 and 21 matches
         ldesc_l1 = prev_frame->ldesc_l;
         ldesc_l2 = curr_frame->ldesc_l;
-        if( Config::bestLRMatches() )
+        if( Config::useBFMLines() )
         {
-            if( Config::lrInParallel() )
+            if( Config::bestLRMatches() )
             {
-                auto match_l = async( launch::async, &StereoFrameHandler::matchLineFeatures, this, bdm, ldesc_l1, ldesc_l2, ref(lmatches_12) );
-                auto match_r = async( launch::async, &StereoFrameHandler::matchLineFeatures, this, bdm, ldesc_l2, ldesc_l1, ref(lmatches_21) );
-                match_l.wait();
-                match_r.wait();
+                if( Config::lrInParallel() )
+                {
+                    auto match_l = async( launch::async, &StereoFrame::matchLineFeaturesBFM, prev_frame, bfm, ldesc_l1, ldesc_l2, ref(lmatches_12) );
+                    auto match_r = async( launch::async, &StereoFrame::matchLineFeaturesBFM, prev_frame, bfm, ldesc_l2, ldesc_l1, ref(lmatches_21) );
+                    match_l.wait();
+                    match_r.wait();
+                }
+                else
+                {
+                    bfm->knnMatch( ldesc_l1,ldesc_l2, lmatches_12, 2);
+                    bfm->knnMatch( ldesc_l2,ldesc_l1, lmatches_21, 2);
+                }
             }
             else
-            {
-                bdm->knnMatch( ldesc_l1, ldesc_l2, lmatches_12, 2);
-                bdm->knnMatch( ldesc_l2, ldesc_l1, lmatches_21, 2);
-            }
+                bfm->knnMatch( ldesc_l1,ldesc_l2, lmatches_12, 2);
         }
         else
-            bdm->knnMatch( ldesc_l1, ldesc_l2, lmatches_12, 2);
+        {
+            if( Config::bestLRMatches() )
+            {
+                if( Config::lrInParallel() )
+                {
+                    auto match_l = async( launch::async, &StereoFrame::matchLineFeatures, prev_frame, bdm, ldesc_l1, ldesc_l2, ref(lmatches_12) );
+                    auto match_r = async( launch::async, &StereoFrame::matchLineFeatures, prev_frame, bdm, ldesc_l2, ldesc_l1, ref(lmatches_21) );
+                    match_l.wait();
+                    match_r.wait();
+                }
+                else
+                {
+                    bdm->knnMatch( ldesc_l1, ldesc_l2, lmatches_12, 2);
+                    bdm->knnMatch( ldesc_l2, ldesc_l1, lmatches_21, 2);
+                }
+            }
+            else
+                bdm->knnMatch( ldesc_l1, ldesc_l2, lmatches_12, 2);
+        }
 
         // sort matches by the distance between the best and second best matches
         double nn_dist_th, nn12_dist_th;
@@ -188,6 +213,9 @@ void StereoFrameHandler::f2fTracking()
             if( lr_qdx == rl_tdx  && dist_12 > nn12_dist_th && angDiff(a1,a2) < Config::maxF2FAngDiff() && (x2-x1).norm() < 2.0 * Config::f2fFlowTh() )
             {
                 LineFeature* line_ = prev_frame->stereo_ls[lr_qdx];
+
+                line_->sdisp_obs = curr_frame->stereo_ls[lr_tdx]->sdisp;
+                line_->edisp_obs = curr_frame->stereo_ls[lr_tdx]->edisp;
                 line_->spl_obs = curr_frame->stereo_ls[lr_tdx]->spl;
                 line_->epl_obs = curr_frame->stereo_ls[lr_tdx]->epl;
                 line_->le_obs  = curr_frame->stereo_ls[lr_tdx]->le;               
@@ -195,14 +223,14 @@ void StereoFrameHandler::f2fTracking()
                 matched_ls.push_back( line_ );
                 curr_frame->stereo_ls[lr_tdx]->idx = prev_frame->stereo_ls[lr_qdx]->idx; // prev idx
             }
-            else
+            /*else
             {
                 curr_frame->stereo_ls[lr_tdx]->idx = max_idx_ls;
                 max_idx_ls++;
-            }
+            }*/
         }
 
-        // put index on the rest of the features
+        /*// put index on the rest of the features
         for( int i = 0; i < curr_frame->stereo_ls.size(); i++)
         {
             if( curr_frame->stereo_ls[i]->idx == -1 )
@@ -210,7 +238,7 @@ void StereoFrameHandler::f2fTracking()
                 curr_frame->stereo_ls[i]->idx = max_idx_ls;
                 max_idx_ls++;
             }
-        }
+        }*/
 
     }
 
@@ -220,20 +248,11 @@ void StereoFrameHandler::f2fTracking()
 
 }
 
-void StereoFrameHandler::matchPointFeatures(BFMatcher* bfm, Mat pdesc_1, Mat pdesc_2, vector<vector<DMatch>> &pmatches_12  )
-{
-    bfm->knnMatch( pdesc_1, pdesc_2, pmatches_12, 2);
-}
-
-void StereoFrameHandler::matchLineFeatures(Ptr<BinaryDescriptorMatcher> bdm, Mat ldesc_1, Mat ldesc_2, vector<vector<DMatch>> &lmatches_12  )
-{
-    bdm->knnMatch( ldesc_1, ldesc_2, lmatches_12, 2);
-}
-
 void StereoFrameHandler::updateFrame()
 {
     matched_pt.clear();
     matched_ls.clear();
+    delete prev_frame;
     prev_frame = curr_frame;
     curr_frame = NULL;
 }
@@ -244,36 +263,26 @@ void StereoFrameHandler::optimizePose()
     // definitions
     Matrix6d DT_cov;
     Matrix4d DT, DT_;
+    Vector6d DT_cov_eig;
     double   err;
 
-    // set init pose    (depending on the values of DT_cov_eig)
-    if( true )
-    {
-        DT     = prev_frame->DT;
-        DT_cov = prev_frame->DT_cov;
-    }
+    // set init pose
+    DT     = prev_frame->DT;
+    DT_cov = prev_frame->DT_cov;
 
     // solver
     if( n_inliers > Config::minFeatures() )
     {
         // optimize
         DT_ = DT;
-        if( Config::useLevMarquardt() )
-            levMarquardtOptimization(DT_,DT_cov,err,Config::maxIters());
-        else
-            gaussNewtonOptimization(DT_,DT_cov,err,Config::maxIters());
+        gaussNewtonOptimization(DT_,DT_cov,err,Config::maxIters());
         // remove outliers (implement some logic based on the covariance's eigenvalues and optim error)
         if( is_finite(DT_) )
         {
             removeOutliers(DT_);
             // refine without outliers
             if( n_inliers > Config::minFeatures() )
-            {
-                if( Config::useLevMarquardt() )
-                    levMarquardtOptimization(DT,DT_cov,err,Config::maxItersRef());
-                else
-                    gaussNewtonOptimization(DT,DT_cov,err,Config::maxItersRef());
-            }
+                gaussNewtonOptimization(DT,DT_cov,err,Config::maxItersRef());
             else
             {
                 DT     = Matrix4d::Identity();
@@ -293,20 +302,22 @@ void StereoFrameHandler::optimizePose()
     }
 
     // set estimated pose
-    if( is_finite(DT_) && err < Config::maxOptimError() )
+    if( is_finite(DT) )
     {
-        curr_frame->DT     = inverse_transformation( DT );  //check what's best
+        curr_frame->DT     = inverse_se3( DT );
         curr_frame->Tfw    = prev_frame->Tfw * curr_frame->DT;
         curr_frame->DT_cov = DT_cov;
         SelfAdjointEigenSolver<Matrix6d> eigensolver(DT_cov);
         curr_frame->DT_cov_eig = eigensolver.eigenvalues();
+        curr_frame->Tfw_cov = unccomp_se3( prev_frame->Tfw, prev_frame->Tfw_cov, DT_cov );
         curr_frame->err_norm   = err;
     }
     else
     {
         curr_frame->DT     = Matrix4d::Identity();
         curr_frame->Tfw    = prev_frame->Tfw;
-        curr_frame->DT_cov = Matrix6d::Zero();
+        curr_frame->Tfw_cov= prev_frame->Tfw_cov;
+        curr_frame->DT_cov = DT_cov;
         SelfAdjointEigenSolver<Matrix6d> eigensolver(DT_cov);
         curr_frame->DT_cov_eig = eigensolver.eigenvalues();
         curr_frame->err_norm   = -1.0;
@@ -331,22 +342,14 @@ void StereoFrameHandler::optimizePose(Matrix4d DT_ini)
     {
         // optimize
         DT_ = DT;
-        if( Config::useLevMarquardt() )
-            levMarquardtOptimization(DT_,DT_cov,err,Config::maxIters());
-        else
-            gaussNewtonOptimization(DT_,DT_cov,err,Config::maxIters());
+        gaussNewtonOptimization(DT_,DT_cov,err,Config::maxIters());
         // remove outliers (implement some logic based on the covariance's eigenvalues and optim error)
         if( is_finite(DT_) )
         {
             removeOutliers(DT_);
             // refine without outliers
             if( n_inliers > Config::minFeatures() )
-            {
-                if( Config::useLevMarquardt() )
-                    levMarquardtOptimization(DT,DT_cov,err,Config::maxItersRef());
-                else
-                    gaussNewtonOptimization(DT,DT_cov,err,Config::maxItersRef());
-            }
+                gaussNewtonOptimization(DT,DT_cov,err,Config::maxItersRef());
             else
             {
                 DT     = Matrix4d::Identity();
@@ -366,9 +369,9 @@ void StereoFrameHandler::optimizePose(Matrix4d DT_ini)
     }
 
     // set estimated pose
-    if( is_finite(DT_) && err < Config::maxOptimError() )
+    if( is_finite(DT) && err < Config::maxOptimError() )
     {
-        curr_frame->DT     = inverse_transformation( DT );  //check what's best
+        curr_frame->DT     = inverse_se3( DT );  //check what's best
         curr_frame->Tfw    = prev_frame->Tfw * curr_frame->DT;
         curr_frame->DT_cov = DT_cov;
         SelfAdjointEigenSolver<Matrix6d> eigensolver(DT_cov);
@@ -410,13 +413,13 @@ void StereoFrameHandler::gaussNewtonOptimization(Matrix4d &DT, Matrix6d &DT_cov,
             g += prior_cov_inv * ( DT_inc - prior_inc );
             LDLT<Matrix6d> solver(H);
             DT_inc = solver.solve(g);
-            DT  << DT * inverse_transformation( transformation_expmap(DT_inc) );
+            DT  << DT * inverse_se3( expmap_se3(DT_inc) );
         }
         else
         {
             LDLT<Matrix6d> solver(H);
             DT_inc = solver.solve(g);
-            DT  << DT * inverse_transformation( transformation_expmap(DT_inc) );
+            DT  << DT * inverse_se3( expmap_se3(DT_inc) );
         }
         // if the parameter change is small stop (TODO: change with two parameters, one for R and another one for t)
         if( DT_inc.norm() < numeric_limits<double>::epsilon() )
@@ -424,47 +427,7 @@ void StereoFrameHandler::gaussNewtonOptimization(Matrix4d &DT, Matrix6d &DT_cov,
         // update previous values
         err_prev = err;
     }
-    DT_cov = H.inverse();
-    err_   = err;
-}
-
-void StereoFrameHandler::levMarquardtOptimization(Matrix4d &DT, Matrix6d &DT_cov, double &err_, int max_iters)
-{
-    Matrix6d H;
-    Vector6d g, DT_inc;
-    Matrix4d DT_;
-    double err, err_prev = 999999999.9;
-    double lambda = Config::lambdaLM(), lambda_k = Config::lambdaK();
-    for( int iters = 0; iters < max_iters; iters++)
-    {
-        // estimate hessian and gradient (select)
-        if( Config::useUncertainty() )
-            optimizeFunctions_uncweighted( DT, H, g, err );
-        else
-            optimizeFunctions_nonweighted( DT, H, g, err );
-        // if the difference is very small stop
-        if( ( abs(err-err_prev) < Config::minErrorChange() ) || ( err < Config::minError()) )
-            break;
-        // update step
-        H += lambda * H.diagonal().asDiagonal();
-        LDLT<Matrix6d> solver(H);
-        DT_inc = solver.solve(g);
-        DT_  << DT * inverse_transformation( transformation_expmap(DT_inc) );
-        // update lambda
-        if( err > err_prev )
-            lambda /= lambda_k;
-        else
-        {
-            lambda *= lambda_k;
-            DT = DT_;
-        }
-        // if the parameter change is small stop (TODO: change with two parameters, one for R and another one for t)
-        if( DT_inc.norm() < numeric_limits<double>::epsilon() )
-            break;
-        // update previous values
-        err_prev = err;
-    }
-    DT_cov = H.inverse();
+    DT_cov = H.inverse();  //DT_cov = Matrix6d::Identity();
     err_   = err;
 }
 
@@ -549,39 +512,34 @@ void StereoFrameHandler::optimizeFunctions_nonweighted(Matrix4d DT, Matrix6d &H,
             // projection error
             Vector2d err_i    = pl_proj - (*it)->pl_obs;
             double err_i_norm = err_i.norm();
-            // check inverse of err_i_norm
-            if( err_i_norm > Config::homogTh() )
-            {
-                double gx   = P_(0);
-                double gy   = P_(1);
-                double gz   = P_(2);
-                double gz2  = gz*gz;
-                double fgz2 = cam->getFx() / std::max(0.0000001,gz2);
-                double dx   = err_i(0);
-                double dy   = err_i(1);
-                // jacobian
-                Vector6d J_aux;
-                J_aux << + fgz2 * dx * gz,
-                         + fgz2 * dy * gz,
-                         - fgz2 * ( gx*dx + gy*dy ),
-                         - fgz2 * ( gx*gy*dx + gy*gy*dy + gz*gz*dy ),
-                         + fgz2 * ( gx*gx*dx + gz*gz*dx + gx*gy*dy ),
-                         + fgz2 * ( gx*gz*dy - gy*gz*dx );
-                J_aux = J_aux / std::max(0.0000001,err_i_norm);
-                // if employing robust cost function
-                double w = 1.0;
-                if( Config::robustCost() )
-                    w = 1.0 / ( 1.0 + err_i_norm * err_i_norm );
-                // update hessian, gradient, and error
-                H_p += J_aux * J_aux.transpose() * w;
-                g_p += J_aux * err_i_norm * w;
-                e_p += err_i_norm * err_i_norm * w;
-                N_p++;
-                if( Config::scalePointsLines() )
-                    r_p.push_back( err_i_norm * err_i_norm * w );
-            }
-            else
-                (*it)->inlier = false;
+            // estimate variables for J, H, and g
+            double gx   = P_(0);
+            double gy   = P_(1);
+            double gz   = P_(2);
+            double gz2  = gz*gz;
+            double fgz2 = cam->getFx() / std::max(Config::homogTh(),gz2);
+            double dx   = err_i(0);
+            double dy   = err_i(1);
+            // jacobian
+            Vector6d J_aux;
+            J_aux << + fgz2 * dx * gz,
+                     + fgz2 * dy * gz,
+                     - fgz2 * ( gx*dx + gy*dy ),
+                     - fgz2 * ( gx*gy*dx + gy*gy*dy + gz*gz*dy ),
+                     + fgz2 * ( gx*gx*dx + gz*gz*dx + gx*gy*dy ),
+                     + fgz2 * ( gx*gz*dy - gy*gz*dx );
+            J_aux = J_aux / std::max(Config::homogTh(),err_i_norm);
+            // if employing robust cost function
+            double w = 1.0;
+            if( Config::robustCost() )
+                w = 1.0 / ( 1.0 + err_i_norm * err_i_norm );
+            // update hessian, gradient, and error
+            H_p += J_aux * J_aux.transpose() * w;
+            g_p += J_aux * err_i_norm * w;
+            e_p += err_i_norm * err_i_norm * w;
+            N_p++;
+            if( Config::scalePointsLines() )
+                r_p.push_back( err_i_norm * err_i_norm * w );
         }
     }
     if( Config::scalePointsLines() )
@@ -604,55 +562,50 @@ void StereoFrameHandler::optimizeFunctions_nonweighted(Matrix4d DT, Matrix6d &H,
             err_i(0) = l_obs(0) * spl_proj(0) + l_obs(1) * spl_proj(1) + l_obs(2);
             err_i(1) = l_obs(0) * epl_proj(0) + l_obs(1) * epl_proj(1) + l_obs(2);
             double err_i_norm = err_i.norm();
-            // check inverse of err_i_norm
-            if( err_i_norm > Config::homogTh() )
-            {
-                // start point
-                double gx   = sP_(0);
-                double gy   = sP_(1);
-                double gz   = sP_(2);
-                double gz2  = gz*gz;
-                double fgz2 = cam->getFx() / std::max(0.0000001,gz2);
-                double ds   = err_i(0);
-                double de   = err_i(1);
-                double lx   = l_obs(0);
-                double ly   = l_obs(1);
-                Vector6d Js_aux;
-                Js_aux << + fgz2 * lx * gz,
-                          + fgz2 * ly * gz,
-                          - fgz2 * ( gx*lx + gy*ly ),
-                          - fgz2 * ( gx*gy*lx + gy*gy*ly + gz*gz*ly ),
-                          + fgz2 * ( gx*gx*lx + gz*gz*lx + gx*gy*ly ),
-                          + fgz2 * ( gx*gz*ly - gy*gz*lx );
-                // end point
-                gx   = eP_(0);
-                gy   = eP_(1);
-                gz   = eP_(2);
-                gz2  = gz*gz;
-                fgz2 = cam->getFx() / std::max(0.0000001,gz2);
-                Vector6d Je_aux, J_aux;
-                Je_aux << + fgz2 * lx * gz,
-                          + fgz2 * ly * gz,
-                          - fgz2 * ( gx*lx + gy*ly ),
-                          - fgz2 * ( gx*gy*lx + gy*gy*ly + gz*gz*ly ),
-                          + fgz2 * ( gx*gx*lx + gz*gz*lx + gx*gy*ly ),
-                          + fgz2 * ( gx*gz*ly - gy*gz*lx );
-                // jacobian
-                J_aux = ( Js_aux * ds + Je_aux * de ) / std::max(0.0000001,err_i_norm);
-                // if employing robust cost function
-                double w = 1.0;
-                if( Config::robustCost() )
-                    w = 1.0 / ( 1.0 + err_i_norm * err_i_norm );
-                // update hessian, gradient, and error
-                H_l += J_aux * J_aux.transpose() * w;
-                g_l += J_aux * err_i_norm * w;
-                e_l += err_i_norm * err_i_norm * w;
-                N_l++;
-                if( Config::scalePointsLines() )
-                    r_l.push_back( err_i_norm * err_i_norm * w );
-            }
-            else
-                (*it)->inlier = false;
+            // estimate variables for J, H, and g
+            // -- start point
+            double gx   = sP_(0);
+            double gy   = sP_(1);
+            double gz   = sP_(2);
+            double gz2  = gz*gz;
+            double fgz2 = cam->getFx() / std::max(Config::homogTh(),gz2);
+            double ds   = err_i(0);
+            double de   = err_i(1);
+            double lx   = l_obs(0);
+            double ly   = l_obs(1);
+            Vector6d Js_aux;
+            Js_aux << + fgz2 * lx * gz,
+                      + fgz2 * ly * gz,
+                      - fgz2 * ( gx*lx + gy*ly ),
+                      - fgz2 * ( gx*gy*lx + gy*gy*ly + gz*gz*ly ),
+                      + fgz2 * ( gx*gx*lx + gz*gz*lx + gx*gy*ly ),
+                      + fgz2 * ( gx*gz*ly - gy*gz*lx );
+            // -- end point
+            gx   = eP_(0);
+            gy   = eP_(1);
+            gz   = eP_(2);
+            gz2  = gz*gz;
+            fgz2 = cam->getFx() / std::max(Config::homogTh(),gz2);
+            Vector6d Je_aux, J_aux;
+            Je_aux << + fgz2 * lx * gz,
+                      + fgz2 * ly * gz,
+                      - fgz2 * ( gx*lx + gy*ly ),
+                      - fgz2 * ( gx*gy*lx + gy*gy*ly + gz*gz*ly ),
+                      + fgz2 * ( gx*gx*lx + gz*gz*lx + gx*gy*ly ),
+                      + fgz2 * ( gx*gz*ly - gy*gz*lx );
+            // jacobian
+            J_aux = ( Js_aux * ds + Je_aux * de ) / std::max(Config::homogTh(),err_i_norm);
+            // if employing robust cost function
+            double w = 1.0;
+            if( Config::robustCost() )
+                w = 1.0 / ( 1.0 + err_i_norm * err_i_norm );
+            // update hessian, gradient, and error
+            H_l += J_aux * J_aux.transpose() * w;
+            g_l += J_aux * err_i_norm * w;
+            e_l += err_i_norm * err_i_norm * w;
+            N_l++;
+            if( Config::scalePointsLines() )
+                r_l.push_back( err_i_norm * err_i_norm * w );
         }
 
     }
@@ -719,68 +672,63 @@ void StereoFrameHandler::optimizeFunctions_uncweighted(Matrix4d DT, Matrix6d &H,
             // projection error
             Vector2d err_i    = pl_proj - (*it)->pl_obs;
             double err_i_norm = err_i.norm();
-            // check inverse of err_i_norm
-            if( err_i_norm > Config::homogTh() )
-            {
-                n_inliers_++;
-                double gx   = P_(0);
-                double gy   = P_(1);
-                double gz   = P_(2);
-                double gz2  = gz*gz;
-                double fgz2 = f / std::max(0.0000001,gz2);
-                double dx   = err_i(0);
-                double dy   = err_i(1);
-                // jacobian
-                Vector6d J_aux;
-                J_aux << + fgz2 * dx * gz,
-                         + fgz2 * dy * gz,
-                         - fgz2 * ( gx*dx + gy*dy ),
-                         - fgz2 * ( gx*gy*dx + gy*gy*dy + gz*gz*dy ),
-                         + fgz2 * ( gx*gx*dx + gz*gz*dx + gx*gy*dy ),
-                         + fgz2 * ( gx*gz*dy - gy*gz*dx );
-                J_aux = J_aux / std::max(0.0000001,err_i_norm);
-                // uncertainty
-                double px_hat = (*it)->pl(0) - cx;
-                double py_hat = (*it)->pl(1) - cy;
-                double disp   = (*it)->disp;
-                double disp2  = disp * disp;
-                Matrix3d covP_an;
-                covP_an(0,0) = disp2+2.f*px_hat*px_hat;
-                covP_an(0,1) = 2.f*px_hat*py_hat;
-                covP_an(0,2) = 2.f*f*px_hat;
-                covP_an(1,1) = disp2+2.f*py_hat*py_hat;
-                covP_an(1,2) = 2.f*f*py_hat;
-                covP_an(2,2) = 2.f*f*f;
-                covP_an(1,0) = covP_an(0,1);
-                covP_an(2,0) = covP_an(0,2);
-                covP_an(2,1) = covP_an(1,2);
-                covP_an << covP_an / (disp2*disp2);
-                MatrixXd Jhg(2,3), covp(2,2), covp_inv(2,2);
-                Jhg  << gz, 0.f, -gx, 0.f, gz, -gy;
-                Jhg  << Jhg * R;
-                covp << Jhg * covP_an * Jhg.transpose();
-                covp << covp / (gz2*gz2);
-                covp = bsigma * covp;
-                covp(0,0) = covp(0,0) + sigma2;
-                covp(1,1) = covp(1,1) + sigma2;
-                covp_inv = covp.inverse();
-                // update the weights matrix
-                double wunc = err_i.transpose() * covp_inv * err_i;
-                wunc = wunc / (dx*dx+dy*dy);                
-                // if employing robust cost function
-                double w = 1.0;
-                if( Config::robustCost() )
-                    w = 1.0 / ( 1.0 + err_i_norm );
-                // update hessian, gradient, and error
-                H_p += J_aux * J_aux.transpose() * wunc * w / err_i_norm ;
-                g_p += J_aux * w * wunc;
-                e_p += err_i_norm * err_i_norm * wunc * w ;
-                N_p++;
-                if( Config::scalePointsLines() )
-                    r_p.push_back( err_i_norm * err_i_norm * w * wunc );
-            }
-            else
-                (*it)->inlier = false;
+            // estimate variables for J, H, and g
+            n_inliers_++;
+            double gx   = P_(0);
+            double gy   = P_(1);
+            double gz   = P_(2);
+            double gz2  = gz*gz;
+            double fgz2 = f / std::max(Config::homogTh(),gz2);
+            double dx   = err_i(0);
+            double dy   = err_i(1);
+            // jacobian
+            Vector6d J_aux;
+            J_aux << + fgz2 * dx * gz,
+                     + fgz2 * dy * gz,
+                     - fgz2 * ( gx*dx + gy*dy ),
+                     - fgz2 * ( gx*gy*dx + gy*gy*dy + gz*gz*dy ),
+                     + fgz2 * ( gx*gx*dx + gz*gz*dx + gx*gy*dy ),
+                     + fgz2 * ( gx*gz*dy - gy*gz*dx );
+            J_aux = J_aux / std::max(Config::homogTh(),err_i_norm);
+            // uncertainty
+            double px_hat = (*it)->pl(0) - cx;
+            double py_hat = (*it)->pl(1) - cy;
+            double disp   = (*it)->disp;
+            double disp2  = disp * disp;
+            Matrix3d covP_an;
+            covP_an(0,0) = disp2+2.f*px_hat*px_hat;
+            covP_an(0,1) = 2.f*px_hat*py_hat;
+            covP_an(0,2) = 2.f*f*px_hat;
+            covP_an(1,1) = disp2+2.f*py_hat*py_hat;
+            covP_an(1,2) = 2.f*f*py_hat;
+            covP_an(2,2) = 2.f*f*f;
+            covP_an(1,0) = covP_an(0,1);
+            covP_an(2,0) = covP_an(0,2);
+            covP_an(2,1) = covP_an(1,2);
+            covP_an << covP_an / (disp2*disp2);
+            MatrixXd Jhg(2,3), covp(2,2), covp_inv(2,2);
+            Jhg  << gz, 0.f, -gx, 0.f, gz, -gy;
+            Jhg  << Jhg * R;
+            covp << Jhg * covP_an * Jhg.transpose();
+            covp << covp / (gz2*gz2);
+            covp = bsigma * covp;
+            covp(0,0) = covp(0,0) + sigma2;
+            covp(1,1) = covp(1,1) + sigma2;
+            covp_inv = covp.inverse();
+            // update the weights matrix
+            double wunc = err_i.transpose() * covp_inv * err_i;
+            wunc = wunc / (dx*dx+dy*dy);
+            // if employing robust cost function
+            double w = 1.0;
+            if( Config::robustCost() )
+                w = 1.0 / ( 1.0 + err_i_norm );
+            // update hessian, gradient, and error
+            H_p += J_aux * J_aux.transpose() * wunc * w / err_i_norm ;
+            g_p += J_aux * w * wunc;
+            e_p += err_i_norm * err_i_norm * wunc * w ;
+            N_p++;
+            if( Config::scalePointsLines() )
+                r_p.push_back( err_i_norm * err_i_norm * w * wunc );
         }
     }
     if( Config::scalePointsLines() )
@@ -791,7 +739,6 @@ void StereoFrameHandler::optimizeFunctions_uncweighted(Matrix4d DT, Matrix6d &H,
     vector<double> r_l;
     for( list<LineFeature*>::iterator it = matched_ls.begin(); it!=matched_ls.end(); it++)
     {
-
         if( (*it)->inlier )
         {
             Vector3d sP_ = DT.block(0,0,3,3) * (*it)->sP + DT.col(3).head(3);
@@ -804,119 +751,112 @@ void StereoFrameHandler::optimizeFunctions_uncweighted(Matrix4d DT, Matrix6d &H,
             err_i(0) = l_obs(0) * spl_proj(0) + l_obs(1) * spl_proj(1) + l_obs(2);
             err_i(1) = l_obs(0) * epl_proj(0) + l_obs(1) * epl_proj(1) + l_obs(2);
             double err_i_norm = err_i.norm();
-            // check inverse of err_i_norm
-            if( err_i_norm > Config::homogTh() )
+            // estimate variables for J, H, and g
+            // -- start point
+            double gx   = sP_(0);
+            double gy   = sP_(1);
+            double gz   = sP_(2);
+            double gz2  = gz*gz;
+            double fgz2 = f / std::max(Config::homogTh(),gz2);
+            double ds   = err_i(0);
+            double de   = err_i(1);
+            double lx   = l_obs(0);
+            double ly   = l_obs(1);
+            Vector6d Js_aux;
+            Js_aux << + fgz2 * lx * gz,
+                      + fgz2 * ly * gz,
+                      - fgz2 * ( gx*lx + gy*ly ),
+                      - fgz2 * ( gx*gy*lx + gy*gy*ly + gz*gz*ly ),
+                      + fgz2 * ( gx*gx*lx + gz*gz*lx + gx*gy*ly ),
+                      + fgz2 * ( gx*gz*ly - gy*gz*lx );
+            // uncertainty
+            double px_hat = (*it)->spl(0) - cx;
+            double py_hat = (*it)->spl(1) - cy;
+            double disp   = (*it)->sdisp;
+            double disp2  = disp * disp;
+            Matrix3d covP_an;
+            covP_an(0,0) = disp2+2.f*px_hat*px_hat;
+            covP_an(0,1) = 2.f*px_hat*py_hat;
+            covP_an(0,2) = 2.f*f*px_hat;
+            covP_an(1,1) = disp2+2.f*py_hat*py_hat;
+            covP_an(1,2) = 2.f*f*py_hat;
+            covP_an(2,2) = 2.f*f*f;
+            covP_an(1,0) = covP_an(0,1);
+            covP_an(2,0) = covP_an(0,2);
+            covP_an(2,1) = covP_an(1,2);
+            covP_an << covP_an / (disp2*disp2);
+            Vector3d spl_proj_ = cam->projectionNH( sP_ );
+            MatrixXd J_ep(1,3);
+            double lxpz = lx * spl_proj_(2);
+            double lypz = ly * spl_proj_(2);
+            J_ep << lxpz*f, lypz*f, lxpz*cx+lypz*cy-lx*spl_proj_(0)-ly*spl_proj_(1);
+            J_ep << J_ep * R;
+            double p4 = pow(spl_proj_(2),4);
+            double cov_p;
+            VectorXd cov_aux(1);
+            cov_aux << J_ep * covP_an * J_ep.transpose();
+            cov_p = cov_aux(0);
+            cov_p = 1.f/cov_p;
+            cov_p = p4 * cov_p * 0.5f * bsigma_inv;
+            // -- end point
+            gx   = eP_(0);
+            gy   = eP_(1);
+            gz   = eP_(2);
+            gz2  = gz*gz;
+            fgz2 = cam->getFx() / std::max(Config::homogTh(),gz2);
+            Vector6d Je_aux, J_aux;
+            Je_aux << + fgz2 * lx * gz,
+                      + fgz2 * ly * gz,
+                      - fgz2 * ( gx*lx + gy*ly ),
+                      - fgz2 * ( gx*gy*lx + gy*gy*ly + gz*gz*ly ),
+                      + fgz2 * ( gx*gx*lx + gz*gz*lx + gx*gy*ly ),
+                      + fgz2 * ( gx*gz*ly - gy*gz*lx );
+            // uncertainty
+            px_hat = (*it)->epl(0) - cx;
+            py_hat = (*it)->epl(1) - cy;
+            disp   = (*it)->edisp;
+            disp2  = disp * disp;
+            Matrix3d covQ_an;
+            covQ_an(0,0) = disp2+2.f*px_hat*px_hat;
+            covQ_an(0,1) = 2.f*px_hat*py_hat;
+            covQ_an(0,2) = 2.f*f*px_hat;
+            covQ_an(1,1) = disp2+2.f*py_hat*py_hat;
+            covQ_an(1,2) = 2.f*f*py_hat;
+            covQ_an(2,2) = 2.f*f*f;
+            covQ_an(1,0) = covQ_an(0,1);
+            covQ_an(2,0) = covQ_an(0,2);
+            covQ_an(2,1) = covQ_an(1,2);
+            covQ_an << covQ_an / (disp2*disp2);
+            Vector3d epl_proj_ = cam->projectionNH( eP_ );
+            lxpz = lx * epl_proj_(2);
+            lypz = ly * epl_proj_(2);
+            J_ep << lxpz*f, lypz*f, lxpz*cx+lypz*cy-lx*epl_proj_(0)-ly*epl_proj_(1);
+            J_ep << J_ep * R;
+            p4 = pow(epl_proj_(2),4);
+            double cov_q;
+            cov_aux << J_ep * covQ_an * J_ep.transpose();
+            cov_q = cov_aux(0);
+            cov_q = 1.f / cov_q;
+            cov_q = p4 * cov_q * 0.5f * bsigma_inv;
+            if( !std::isinf(cov_p) && !std::isnan(cov_p) && !std::isinf(cov_q) && !std::isnan(cov_q) )
             {
-                // -- start point
-                double gx   = sP_(0);
-                double gy   = sP_(1);
-                double gz   = sP_(2);
-                double gz2  = gz*gz;
-                double fgz2 = f / std::max(0.0000001,gz2);
-                double ds   = err_i(0);
-                double de   = err_i(1);
-                double lx   = l_obs(0);
-                double ly   = l_obs(1);
-                Vector6d Js_aux;
-                Js_aux << + fgz2 * lx * gz,
-                          + fgz2 * ly * gz,
-                          - fgz2 * ( gx*lx + gy*ly ),
-                          - fgz2 * ( gx*gy*lx + gy*gy*ly + gz*gz*ly ),
-                          + fgz2 * ( gx*gx*lx + gz*gz*lx + gx*gy*ly ),
-                          + fgz2 * ( gx*gz*ly - gy*gz*lx );
-                // uncertainty
-                double px_hat = (*it)->spl(0) - cx;
-                double py_hat = (*it)->spl(1) - cy;
-                double disp   = (*it)->sdisp;
-                double disp2  = disp * disp;
-                Matrix3d covP_an;
-                covP_an(0,0) = disp2+2.f*px_hat*px_hat;
-                covP_an(0,1) = 2.f*px_hat*py_hat;
-                covP_an(0,2) = 2.f*f*px_hat;
-                covP_an(1,1) = disp2+2.f*py_hat*py_hat;
-                covP_an(1,2) = 2.f*f*py_hat;
-                covP_an(2,2) = 2.f*f*f;
-                covP_an(1,0) = covP_an(0,1);
-                covP_an(2,0) = covP_an(0,2);
-                covP_an(2,1) = covP_an(1,2);
-                covP_an << covP_an / (disp2*disp2);
-                Vector3d spl_proj_ = cam->projectionNH( sP_ );
-                MatrixXd J_ep(1,3);
-                double lxpz = lx * spl_proj_(2);
-                double lypz = ly * spl_proj_(2);
-                J_ep << lxpz*f, lypz*f, lxpz*cx+lypz*cy-lx*spl_proj_(0)-ly*spl_proj_(1);
-                J_ep << J_ep * R;
-                double p4 = pow(spl_proj_(2),4);
-                double cov_p;
-                VectorXd cov_aux(1);
-                cov_aux << J_ep * covP_an * J_ep.transpose();
-                cov_p = cov_aux(0);
-                cov_p = 1.f/cov_p;
-                cov_p = p4 * cov_p * 0.5f * bsigma_inv;
-
-                // -- end point
-                gx   = eP_(0);
-                gy   = eP_(1);
-                gz   = eP_(2);
-                gz2  = gz*gz;
-                fgz2 = cam->getFx() / std::max(0.0000001,gz2);
-                Vector6d Je_aux, J_aux;
-                Je_aux << + fgz2 * lx * gz,
-                          + fgz2 * ly * gz,
-                          - fgz2 * ( gx*lx + gy*ly ),
-                          - fgz2 * ( gx*gy*lx + gy*gy*ly + gz*gz*ly ),
-                          + fgz2 * ( gx*gx*lx + gz*gz*lx + gx*gy*ly ),
-                          + fgz2 * ( gx*gz*ly - gy*gz*lx );
-                // uncertainty
-                px_hat = (*it)->epl(0) - cx;
-                py_hat = (*it)->epl(1) - cy;
-                disp   = (*it)->edisp;
-                disp2  = disp * disp;
-                Matrix3d covQ_an;
-                covQ_an(0,0) = disp2+2.f*px_hat*px_hat;
-                covQ_an(0,1) = 2.f*px_hat*py_hat;
-                covQ_an(0,2) = 2.f*f*px_hat;
-                covQ_an(1,1) = disp2+2.f*py_hat*py_hat;
-                covQ_an(1,2) = 2.f*f*py_hat;
-                covQ_an(2,2) = 2.f*f*f;
-                covQ_an(1,0) = covQ_an(0,1);
-                covQ_an(2,0) = covQ_an(0,2);
-                covQ_an(2,1) = covQ_an(1,2);
-                covQ_an << covQ_an / (disp2*disp2);
-                Vector3d epl_proj_ = cam->projectionNH( eP_ );
-                lxpz = lx * epl_proj_(2);
-                lypz = ly * epl_proj_(2);
-                J_ep << lxpz*f, lypz*f, lxpz*cx+lypz*cy-lx*epl_proj_(0)-ly*epl_proj_(1);
-                J_ep << J_ep * R;
-                p4 = pow(epl_proj_(2),4);
-                double cov_q;
-                cov_aux << J_ep * covQ_an * J_ep.transpose();
-                cov_q = cov_aux(0);
-                cov_q = 1.f / cov_q;
-                cov_q = p4 * cov_q * 0.5f * bsigma_inv;
-
-                if( !std::isinf(cov_p) && !std::isnan(cov_p) && !std::isinf(cov_q) && !std::isnan(cov_q) )
-                {
-                    n_inliers_++;
-                    // update the weights matrix
-                    double wunc = err_i(0) * err_i(0) * cov_p + err_i(1) * err_i(1) * cov_q;
-                    wunc = wunc / ( err_i(0)*err_i(0) + err_i(1)*err_i(1) );
-                    // jacobian
-                    J_aux = ( Js_aux * ds + Je_aux * de ) / std::max(0.0000001,err_i_norm);
-                    // if employing robust cost function
-                    double w = 1.0;
-                    if( Config::robustCost() )
-                        w = 1.0 / ( 1.0 + err_i_norm );
-                    // update hessian, gradient, and error
-                    H_l += J_aux * J_aux.transpose() * wunc * w / err_i_norm ;
-                    g_l += J_aux * w * wunc;
-                    e_l += err_i_norm * err_i_norm * wunc * w ;
-                    N_l++;
-                    if( Config::scalePointsLines() )
-                        r_l.push_back( err_i_norm * err_i_norm * w * wunc );
-                }
-                else
-                    (*it)->inlier = false;
+                n_inliers_++;
+                // update the weights matrix
+                double wunc = err_i(0) * err_i(0) * cov_p + err_i(1) * err_i(1) * cov_q;
+                wunc = wunc / ( err_i(0)*err_i(0) + err_i(1)*err_i(1) );
+                // jacobian
+                J_aux = ( Js_aux * ds + Je_aux * de ) / std::max(Config::homogTh(),err_i_norm);
+                // if employing robust cost function
+                double w = 1.0;
+                if( Config::robustCost() )
+                    w = 1.0 / ( 1.0 + err_i_norm );
+                // update hessian, gradient, and error
+                H_l += J_aux * J_aux.transpose() * wunc * w / err_i_norm ;
+                g_l += J_aux * w * wunc;
+                e_l += err_i_norm * err_i_norm * wunc * w ;
+                N_l++;
+                if( Config::scalePointsLines() )
+                    r_l.push_back( err_i_norm * err_i_norm * w * wunc );
             }
             else
                 (*it)->inlier = false;

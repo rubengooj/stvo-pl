@@ -39,11 +39,11 @@ public:
     ~StereoFrameHandler();
 
     void initialize( const Mat img_l_, const Mat img_r_, const int idx_);
+    void updateFrame();
     void insertStereoPair(const Mat img_l_, const Mat img_r_, const int idx_);
     void f2fTracking();
     void optimizePose();
     void optimizePose(Matrix4d DT_ini);
-    void updateFrame();
     void setMotionPrior(Vector6d prior_inc_, Matrix6d prior_cov_);
 
     int  n_inliers, n_inliers_pt, n_inliers_ls, max_idx_pt, max_idx_ls, max_idx_pt_prev_kf, max_idx_ls_prev_kf;
@@ -51,7 +51,6 @@ public:
     list<PointFeature*> matched_pt;
     list<LineFeature*>  matched_ls;
 
-    StereoFrame* prev_keyframe;
     StereoFrame* prev_frame;
     StereoFrame* curr_frame;
     PinholeStereoCamera* cam;
@@ -61,11 +60,8 @@ public:
 
 private:
 
-    void matchPointFeatures(BFMatcher* bfm, Mat pdesc_1, Mat pdesc_2, vector<vector<DMatch>> &pmatches_12  );
-    void matchLineFeatures(Ptr<BinaryDescriptorMatcher> bdm, Mat ldesc_1, Mat ldesc_2, vector<vector<DMatch>> &lmatches_12  );
     void removeOutliers( Matrix4d DT );
     void gaussNewtonOptimization(Matrix4d &DT, Matrix6d &DT_cov, double &err_, int max_iters);
-    void levMarquardtOptimization(Matrix4d &DT, Matrix6d &DT_cov, double &err_, int max_iters);
     void optimizeFunctions_nonweighted(Matrix4d DT, Matrix6d &H, Vector6d &g, double &e);
     void optimizeFunctions_uncweighted(Matrix4d DT, Matrix6d &H, Vector6d &g, double &e);
 

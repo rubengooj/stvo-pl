@@ -55,20 +55,61 @@ int main(int argc, char **argv)
     YAML::Node cam_config = dset_config["cam0"];
     string camera_model = cam_config["cam_model"].as<string>();
     PinholeStereoCamera*  cam_pin;
+    bool ASL = ( strstr(dataset_name.c_str(), "ASL") != NULL );
     if( camera_model == "Pinhole" )
     {
-        cam_pin = new PinholeStereoCamera(
-            cam_config["cam_width"].as<double>(),
-            cam_config["cam_height"].as<double>(),
-            fabs(cam_config["cam_fx"].as<double>()),
-            fabs(cam_config["cam_fy"].as<double>()),
-            cam_config["cam_cx"].as<double>(),
-            cam_config["cam_cy"].as<double>(),
-            cam_config["cam_bl"].as<double>(),
-            cam_config["cam_d0"].as<double>(),
-            cam_config["cam_d1"].as<double>(),
-            cam_config["cam_d2"].as<double>(),
-            cam_config["cam_d3"].as<double>()  );
+        if( ASL )
+        {
+            Mat Kl, Kr, Rl, Rr, Dl, Dr;
+            vector<double> Kl_ = cam_config["Kl"].as<vector<double>>();
+            vector<double> Kr_ = cam_config["Kr"].as<vector<double>>();
+            vector<double> Rl_ = cam_config["Rl"].as<vector<double>>();
+            vector<double> Rr_ = cam_config["Rr"].as<vector<double>>();
+            vector<double> Dl_ = cam_config["Dl"].as<vector<double>>();
+            vector<double> Dr_ = cam_config["Dr"].as<vector<double>>();
+            Kl = ( Mat_<float>(3,3) << Kl_[0], 0.0, Kl_[2], 0.0, Kl_[1], Kl_[3], 0.0, 0.0, 1.0 );
+            Kr = ( Mat_<float>(3,3) << Kr_[0], 0.0, Kr_[2], 0.0, Kr_[1], Kr_[3], 0.0, 0.0, 1.0 );
+            // load rotations
+            Rl = Mat::eye(3,3,CV_64F);
+            Rr = Mat::eye(3,3,CV_64F);
+            int k = 0;
+            for( int i = 0; i < 3; i++ )
+            {
+                for( int j = 0; j < 3; j++, k++ )
+                {
+                    Rl.at<double>(i,j) = Rl_[k];
+                    Rr.at<double>(i,j) = Rr_[k];
+                }
+            }
+            // load distortion parameters
+            int Nd = Dl_.size();
+            Dl = Mat::eye(1,Nd,CV_64F);
+            Dr = Mat::eye(1,Nd,CV_64F);
+            for( int i = 0; i < Nd; i++ )
+            {
+                Dl.at<double>(0,i) = Dl_[i];
+                Dr.at<double>(0,i) = Dr_[i];
+            }
+            // create camera object
+            cam_pin = new PinholeStereoCamera(
+                cam_config["cam_width"].as<double>(),
+                cam_config["cam_height"].as<double>(),
+                cam_config["cam_bl"].as<double>(),
+                Kl, Kr, Rl, Rr, Dl, Dr);
+        }
+        else
+            cam_pin = new PinholeStereoCamera(
+                cam_config["cam_width"].as<double>(),
+                cam_config["cam_height"].as<double>(),
+                fabs(cam_config["cam_fx"].as<double>()),
+                fabs(cam_config["cam_fy"].as<double>()),
+                cam_config["cam_cx"].as<double>(),
+                cam_config["cam_cy"].as<double>(),
+                cam_config["cam_bl"].as<double>(),
+                cam_config["cam_d0"].as<double>(),
+                cam_config["cam_d1"].as<double>(),
+                cam_config["cam_d2"].as<double>(),
+                cam_config["cam_d3"].as<double>()  );
     }
     else
     {
@@ -105,6 +146,7 @@ int main(int argc, char **argv)
                 (filename_path.extension() == ".png"  ||
                  filename_path.extension() == ".jpg"  ||
                  filename_path.extension() == ".jpeg" ||
+                 filename_path.extension() == ".pnm"  ||
                  filename_path.extension() == ".tiff") )
         {
             std::string filename(filename_path.string());
@@ -121,6 +163,7 @@ int main(int argc, char **argv)
                 (filename_path.extension() == ".png"  ||
                  filename_path.extension() == ".jpg"  ||
                  filename_path.extension() == ".jpeg" ||
+                 filename_path.extension() == ".pnm"  ||
                  filename_path.extension() == ".tiff") )
         {
             std::string filename(filename_path.string());
@@ -150,25 +193,33 @@ int main(int argc, char **argv)
 
     // ground truth file
     string gt_name = dataset_dir + "/groundtruth.txt";
+    bool has_gt;
     vector<Matrix4d> GTposes;
-    if( true ){
+    if( false ){
         FILE *fp = fopen(gt_name.c_str(),"r");
-        if (!fp){
+        if (!fp)
+        {
+            has_gt = false;
             cout << endl << endl << "Error when loading GT poses." << endl << endl;
-            //hasGT = false;
         }
-        while (!feof(fp)) {
-            Matrix4f P = Matrix4f::Identity();
-            if (fscanf(fp, "%f %f %f %f %f %f %f %f %f %f %f %f",
-                           &P(0,0), &P(0,1), &P(0,2), &P(0,3),
-                           &P(1,0), &P(1,1), &P(1,2), &P(1,3),
-                           &P(2,0), &P(2,1), &P(2,2), &P(2,3) )==12)
-            {
-                GTposes.push_back( P.cast<double>() );
+        else
+        {
+            has_gt = true;
+            while (!feof(fp)) {
+                Matrix4f P = Matrix4f::Identity();
+                if (fscanf(fp, "%f %f %f %f %f %f %f %f %f %f %f %f",
+                               &P(0,0), &P(0,1), &P(0,2), &P(0,3),
+                               &P(1,0), &P(1,1), &P(1,2), &P(1,3),
+                               &P(2,0), &P(2,1), &P(2,2), &P(2,3) )==12)
+                {
+                    GTposes.push_back( P.cast<double>() );
+                }
             }
+            fclose(fp);
         }
-        fclose(fp);
     }
+    else
+        has_gt = false;
 
     // create scene
     Matrix4d Tcw, Tfw = Matrix4d::Identity(), Tfw_prev = Matrix4d::Identity(), T_inc = Matrix4d::Identity(), T_inc_l = Matrix4d::Identity();
@@ -177,8 +228,8 @@ int main(int argc, char **argv)
     Tcw = Matrix4d::Identity();
     Tcw << 1, 0, 0, 0, 0, 0, 1, 0, 0, -1, 0, 0, 0, 0, 0, 1;
     #ifdef HAS_MRPT
-    sceneRepresentation* scene = new sceneRepresentation("../config/scene_config.ini");
-    scene->initializeScene(Tcw);
+    sceneRepresentation scene("../config/scene_config.ini");
+    scene.initializeScene(Tcw,has_gt);
     mrpt::utils::CTicTac clock;
     #endif
 
@@ -189,15 +240,20 @@ int main(int argc, char **argv)
     for (std::map<std::string, std::string>::iterator it_l = sorted_imgs_l.begin(), it_r = sorted_imgs_r.begin();
          it_l != sorted_imgs_l.end(), it_r != sorted_imgs_r.end(); ++it_l, ++it_r, frame_counter++)
     {
+
         // load images
         boost::filesystem::path img_path_l = img_dir_path_l / boost::filesystem::path(it_l->second.c_str());
         boost::filesystem::path img_path_r = img_dir_path_r / boost::filesystem::path(it_r->second.c_str());
-        Mat img_l( imread(img_path_l.string(), CV_8UC3) );  assert(!img_l.empty());
-        Mat img_r( imread(img_path_r.string(), CV_8UC3) );  assert(!img_r.empty());
+        Mat img_l( imread(img_path_l.string(), CV_LOAD_IMAGE_UNCHANGED) );  assert(!img_l.empty()); // it depends on the OpenCV version!!!
+        Mat img_r( imread(img_path_r.string(), CV_LOAD_IMAGE_UNCHANGED) );  assert(!img_r.empty());
+
+        // if images are distorted
+        Mat img_l_rec, img_r_rec;
+        cam_pin->rectifyImagesLR(img_l,img_l_rec,img_r,img_r_rec);
 
         // initialize (TODO: out of the for loop)
         if( frame_counter == 0 )
-            StVO->initialize(img_l,img_r,0);
+            StVO->initialize(img_l_rec,img_r_rec,0);
         // run
         else
         {
@@ -205,10 +261,10 @@ int main(int argc, char **argv)
             #ifdef HAS_MRPT
             clock.Tic();
             #endif
-            StVO->insertStereoPair( img_l, img_r, frame_counter );
+            StVO->insertStereoPair( img_l_rec, img_r_rec, frame_counter );
 
             // set GT initial pose
-            Matrix4d gt_inc = inverse_transformation( GTposes[frame_counter] ) * GTposes[frame_counter-1];
+            //Matrix4d gt_inc = inverse_se3( GTposes[frame_counter] ) * GTposes[frame_counter-1];
 
             // solve with robust kernel and IRLS
             StVO->optimizePose();
@@ -222,12 +278,20 @@ int main(int argc, char **argv)
 
             // update scene
             #ifdef HAS_MRPT
-            scene->setText(frame_counter,t1,StVO->n_inliers_pt,StVO->matched_pt.size(),StVO->n_inliers_ls,StVO->matched_ls.size());
-            scene->setCov( cov );
-            scene->setPose( T_inc );
-            scene->setImage( img_path_l.string() );
-            scene->setGT( GTposes[frame_counter] );
-            scene->updateScene();
+            scene.setText(frame_counter,t1,StVO->n_inliers_pt,StVO->matched_pt.size(),StVO->n_inliers_ls,StVO->matched_ls.size());
+            scene.setCov( cov );
+            scene.setPose( T_inc );
+            imwrite("../config/aux/img_aux.png",StVO->curr_frame->plotStereoFrame());
+            scene.setImage( "../config/aux/img_aux.png" );
+            //scene.setImage( img_path_l.string() );
+            if(has_gt)
+                scene.setGT( GTposes[frame_counter] );
+            scene.updateScene();
+            // insert Keyframe when necessary
+            /*if( StVO->needNewKF() ){
+                StVO->currFrameIsKF();
+                scene.setKF();
+            }*/
             #endif
 
             // console output
@@ -243,6 +307,11 @@ int main(int argc, char **argv)
 
         }
     }
+
+    // wait until the scene is closed
+    #ifdef HAS_MRPT
+    while( scene.isOpen() );
+    #endif
 
     return 0;
 }
