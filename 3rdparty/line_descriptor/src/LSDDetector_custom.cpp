@@ -39,7 +39,7 @@
  //
  //M*/
 
-#include "precomp.hpp"
+#include "precomp_custom.hpp"
 
 //using namespace cv;
 namespace cv
@@ -47,13 +47,13 @@ namespace cv
 namespace line_descriptor
 {
 
-Ptr<LSDDetector> LSDDetector::createLSDDetector()
+Ptr<LSDDetectorC> LSDDetectorC::createLSDDetectorC()
 {
-  return Ptr<LSDDetector>( new LSDDetector() );
+  return Ptr<LSDDetectorC>( new LSDDetectorC() );
 }
 
 /* compute Gaussian pyramid of input image */
-void LSDDetector::computeGaussianPyramid( const Mat& image, int numOctaves, int scale )
+void LSDDetectorC::computeGaussianPyramid( const Mat& image, int numOctaves, int scale )
 {
   /* clear class fields */
   gaussianPyrs.clear();
@@ -102,7 +102,7 @@ inline void checkLineExtremes( cv::Vec4f& extremes, cv::Size imageSize )
 }
 
 /* requires line detection (only one image) */
-void LSDDetector::detect( const Mat& image, CV_OUT std::vector<KeyLine>& keylines, int scale, int numOctaves, const Mat& mask )
+void LSDDetectorC::detect( const Mat& image, CV_OUT std::vector<KeyLine>& keylines, int scale, int numOctaves, const Mat& mask )
 {
   if( mask.data != NULL && ( mask.size() != image.size() || mask.type() != CV_8UC1 ) )
     throw std::runtime_error( "Mask error while detecting lines: please check its dimensions and that data type is CV_8UC1" );
@@ -112,7 +112,7 @@ void LSDDetector::detect( const Mat& image, CV_OUT std::vector<KeyLine>& keyline
 }
 
 /* requires line detection (more than one image) */
-void LSDDetector::detect( const std::vector<Mat>& images, std::vector<std::vector<KeyLine> >& keylines, int scale, int numOctaves,
+void LSDDetectorC::detect( const std::vector<Mat>& images, std::vector<std::vector<KeyLine> >& keylines, int scale, int numOctaves,
                           const std::vector<Mat>& masks ) const
 {
   /* detect lines from each image */
@@ -127,7 +127,7 @@ void LSDDetector::detect( const std::vector<Mat>& images, std::vector<std::vecto
 }
 
 /* implementation of line detection */
-void LSDDetector::detectImpl( const Mat& imageSrc, std::vector<KeyLine>& keylines, int numOctaves, int scale, const Mat& mask ) const
+void LSDDetectorC::detectImpl( const Mat& imageSrc, std::vector<KeyLine>& keylines, int numOctaves, int scale, const Mat& mask ) const
 {
   cv::Mat image;
   if( imageSrc.channels() != 1 )
@@ -140,7 +140,7 @@ void LSDDetector::detectImpl( const Mat& imageSrc, std::vector<KeyLine>& keyline
     throw std::runtime_error( "Error, depth image!= 0" );
 
   /* create a pointer to self */
-  LSDDetector *lsd = const_cast<LSDDetector*>( this );
+  LSDDetectorC *lsd = const_cast<LSDDetectorC*>( this );
 
   /* compute Gaussian pyramids */
   lsd->computeGaussianPyramid( image, numOctaves, scale );
@@ -214,8 +214,8 @@ void LSDDetector::detectImpl( const Mat& imageSrc, std::vector<KeyLine>& keyline
 
 }
 
-// Overload detect and detectImpl with LSDDetector Options
-void LSDDetector::detect( const Mat& image, CV_OUT std::vector<KeyLine>& keylines, int scale, int numOctaves, LSDOptions opts, const Mat& mask )
+// Overload detect and detectImpl with LSDDetectorC Options
+void LSDDetectorC::detect( const Mat& image, CV_OUT std::vector<KeyLine>& keylines, int scale, int numOctaves, LSDOptions opts, const Mat& mask )
 {
   if( mask.data != NULL && ( mask.size() != image.size() || mask.type() != CV_8UC1 ) )
     throw std::runtime_error( "Mask error while detecting lines: please check its dimensions and that data type is CV_8UC1" );
@@ -224,7 +224,7 @@ void LSDDetector::detect( const Mat& image, CV_OUT std::vector<KeyLine>& keyline
     detectImpl( image, keylines, numOctaves, scale, opts, mask );
 }
 
-void LSDDetector::detectImpl( const Mat& imageSrc, std::vector<KeyLine>& keylines, int numOctaves, int scale, LSDOptions opts, const Mat& mask ) const
+void LSDDetectorC::detectImpl( const Mat& imageSrc, std::vector<KeyLine>& keylines, int numOctaves, int scale, LSDOptions opts, const Mat& mask ) const
 {
   cv::Mat image;
   if( imageSrc.channels() != 1 )
@@ -237,7 +237,7 @@ void LSDDetector::detectImpl( const Mat& imageSrc, std::vector<KeyLine>& keyline
     throw std::runtime_error( "Error, depth image!= 0" );
 
   /* create a pointer to self */
-  LSDDetector *lsd = const_cast<LSDDetector*>( this );
+  LSDDetectorC *lsd = const_cast<LSDDetectorC*>( this );
 
   /* compute Gaussian pyramids */
   lsd->computeGaussianPyramid( image, numOctaves, scale );

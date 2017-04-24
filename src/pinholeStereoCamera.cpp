@@ -49,22 +49,32 @@ PinholeStereoCamera::PinholeStereoCamera( int width_, int height_, double fx_, d
     initUndistortRectifyMap( Kr, Dr, Rr, Pr, cv::Size(width,height), CV_16SC2, undistmap1r, undistmap2r );
 }
 
-
-PinholeStereoCamera::PinholeStereoCamera( int width_, int height_, double b_, Mat Kl_, Mat Kr_, Mat Rl_, Mat Rr_, Mat Dl_, Mat Dr_) :
-    width(width_), height(height_), Kl(Kl_), Kr(Kr_), b(b_), Rl(Rl_), Rr(Rr_), Dl(Dl_), Dr(Dr_)
+PinholeStereoCamera::PinholeStereoCamera( int width_, int height_, double b_, Mat Kl_, Mat Kr_, Mat R_, Mat t_, Mat Dl_, Mat Dr_, bool equi) :
+    width(width_), height(height_), Kl(Kl_), Kr(Kr_), b(b_), R(R_), t(t_), Dl(Dl_), Dr(Dr_)
 {
-    fx = Kl.at<float>(0,0);
-    fy = Kl.at<float>(0,0);
-    cx = Kl.at<float>(0,2);
-    cy = Kl.at<float>(1,2);
-    Pl = ( Mat_<float>(3,4) << fx, 0.0, cx,   0.0,   0.0, fx, cy, 0.0,   0.0, 0.0, 1.0, 0.0 );
-    Pr = ( Mat_<float>(3,4) << fx, 0.0, cx, -b*fx,   0.0, fx, cy, 0.0,   0.0, 0.0, 1.0, 0.0 );
-    K    << fx, 0.0, cx, 0.0, fx, cy, 0.0, 0.0, 1.0;
+
     // initialize undistort rectify map OpenCV
-    initUndistortRectifyMap( Kl, Dl, Rl, Pl, cv::Size(width,height), CV_16SC2, undistmap1l, undistmap2l );
-    initUndistortRectifyMap( Kr, Dr, Rr, Pr, cv::Size(width,height), CV_16SC2, undistmap1r, undistmap2r );
+    if(equi)
+    {
+        stereoRectify( Kl, Dl, Kr, Dr, cv::Size(width,height), R, t, Rl, Rr, Pl, Pr, Q, cv::CALIB_ZERO_DISPARITY, 0 );
+        cv::fisheye::initUndistortRectifyMap( Kl, Dl, Rl, Pl, cv::Size(width,height), CV_16SC2, undistmap1l, undistmap2l );
+        cv::fisheye::initUndistortRectifyMap( Kr, Dr, Rr, Pr, cv::Size(width,height), CV_16SC2, undistmap1r, undistmap2r );
+    }
+    else
+    {
+        stereoRectify( Kl, Dl, Kr, Dr, cv::Size(width,height), R, t, Rl, Rr, Pl, Pr, Q, cv::CALIB_ZERO_DISPARITY, 0 );
+        initUndistortRectifyMap( Kl, Dl, Rl, Pl, cv::Size(width,height), CV_16SC2, undistmap1l, undistmap2l );
+        initUndistortRectifyMap( Kr, Dr, Rr, Pr, cv::Size(width,height), CV_16SC2, undistmap1r, undistmap2r );
+    }
 
     dist = true;
+
+    fx = Pl.at<double>(0,0);
+    fy = Pl.at<double>(1,1);
+    cx = Pl.at<double>(0,2);
+    cy = Pl.at<double>(1,2);
+
+    K << fx, 0.0, cx, 0.0, fy, cy, 0.0, 0.0, 1.0;
 
 }
 

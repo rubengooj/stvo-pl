@@ -42,6 +42,7 @@ include_directories(
   ${OpenCV_INCLUDE_DIRS}
   ${Boost_INCLUDE_DIRS}
   ${YAML_CPP_INCLUDE_DIRS}
+  ${PROJECT_SOURCE_DIR}/3rdparty/line_descriptor/include/
 )
 
 # Set link libraries
@@ -49,6 +50,7 @@ list(APPEND LINK_LIBS
   ${OpenCV_LIBS}
   ${Boost_LIBRARIES}
   ${YAML_CPP_LIBRARIES}
+  ${PROJECT_SOURCE_DIR}/3rdparty/line_descriptor/lib/liblinedesc.so
 )
 
 # Set source files 
@@ -93,9 +95,8 @@ endif()
 if(HAS_MRPT)
 add_executable       ( bbStVO app/bbStVO.cpp )
 target_link_libraries( bbStVO stvo )
-endif(HAS_MRPT)
 add_executable       ( imagesStVO app/imagesStVO.cpp )
 target_link_libraries( imagesStVO stvo )
-#add_executable       ( imagesSVO app/imagesSVO.cpp )
-#target_link_libraries( imagesSVO stvo )
+endif(HAS_MRPT)
+
 

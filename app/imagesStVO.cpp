@@ -37,16 +37,47 @@ using namespace StVO;
 int main(int argc, char **argv)
 {
 
-    // read dataset name
-    if( argc < 2 )
+    // read inputs
+    int frame_offset = 0, frame_number = 0, frame_step = 1;
+    string dataset_name;
+    if( argc < 2 || argc == 3 || argc == 5 ||argc == 7 || argc > 8 )
     {
-        cout << endl << "Usage: ./imagesStVO <dataset_name>" << endl;
+        cout << endl << "Usage: ./dbgStVO <dataset_name>" << endl
+             << "Options:\n"
+             << "\t-o,Offset (number of frames to skip in the dataset directory\n"
+             << "\t-n,Number of frames to process the sequence"
+             << "\t-s,Parameter to skip s-1 frames (default 1)"
+             << endl;
         return -1;
     }
-    string dataset_name = argv[1];
+    dataset_name = argv[1];
+    if( argc == 4 || argc == 6 || argc == 8 )
+    {
+        int nargs = (argc-2)/2;
+        for( int i = 0; i < nargs; i++ )
+        {
+            int j = 2*i + 2;
+            if( string(argv[j]) == "-o" )
+                frame_offset = atoi(argv[j+1]);
+            else if( string(argv[j]) == "-n" )
+                frame_number = atoi(argv[j+1]);
+            else if( string(argv[j]) == "-s" )
+                frame_step = atoi(argv[j+1]);
+            else
+            {
+                cout << endl << "Usage: ./dbgStVO <dataset_name>" << endl
+                     << "Options:\n"
+                     << "\t-o,Offset (number of frames to skip in the dataset directory\n"
+                     << "\t-n,Number of frames to process the sequence"
+                     << "\t-s,Parameter to skip s-1 frames (default 1)"
+                     << endl;
+                return -1;
+            }
+        }
+    }
 
     // read dataset root dir fron environment variable
-    string dataset_dir( string( getenv("DATASETS_DIR") ) + "/" + dataset_name );
+    string dataset_dir( string( getenv("DATASETS_DIR") ) + dataset_name );
 
     // read content of the .yaml dataset configuration file
     YAML::Node dset_config = YAML::LoadFile(dataset_dir+"/dataset_params.yaml");
@@ -55,31 +86,31 @@ int main(int argc, char **argv)
     YAML::Node cam_config = dset_config["cam0"];
     string camera_model = cam_config["cam_model"].as<string>();
     PinholeStereoCamera*  cam_pin;
-    bool ASL = ( strstr(dataset_name.c_str(), "ASL") != NULL );
+    bool rectify = false;
     if( camera_model == "Pinhole" )
     {
-        if( ASL )
+        // if EuRoC or Falcon yaml file
+        if( cam_config["Kl"].IsDefined() )
         {
-            Mat Kl, Kr, Rl, Rr, Dl, Dr;
+            rectify = true;
+            Mat Kl, Kr, Dl, Dr, R, t;
             vector<double> Kl_ = cam_config["Kl"].as<vector<double>>();
             vector<double> Kr_ = cam_config["Kr"].as<vector<double>>();
-            vector<double> Rl_ = cam_config["Rl"].as<vector<double>>();
-            vector<double> Rr_ = cam_config["Rr"].as<vector<double>>();
             vector<double> Dl_ = cam_config["Dl"].as<vector<double>>();
             vector<double> Dr_ = cam_config["Dr"].as<vector<double>>();
             Kl = ( Mat_<float>(3,3) << Kl_[0], 0.0, Kl_[2], 0.0, Kl_[1], Kl_[3], 0.0, 0.0, 1.0 );
             Kr = ( Mat_<float>(3,3) << Kr_[0], 0.0, Kr_[2], 0.0, Kr_[1], Kr_[3], 0.0, 0.0, 1.0 );
-            // load rotations
-            Rl = Mat::eye(3,3,CV_64F);
-            Rr = Mat::eye(3,3,CV_64F);
+            // load rotation and translation
+            vector<double> R_ = cam_config["R"].as<vector<double>>();
+            vector<double> t_ = cam_config["t"].as<vector<double>>();
+            R = Mat::eye(3,3,CV_64F);
+            t = Mat::eye(3,1,CV_64F);
             int k = 0;
             for( int i = 0; i < 3; i++ )
             {
+                t.at<double>(i,0) = t_[i];
                 for( int j = 0; j < 3; j++, k++ )
-                {
-                    Rl.at<double>(i,j) = Rl_[k];
-                    Rr.at<double>(i,j) = Rr_[k];
-                }
+                    R.at<double>(i,j) = R_[k];
             }
             // load distortion parameters
             int Nd = Dl_.size();
@@ -90,13 +121,25 @@ int main(int argc, char **argv)
                 Dl.at<double>(0,i) = Dl_[i];
                 Dr.at<double>(0,i) = Dr_[i];
             }
-            // create camera object
-            cam_pin = new PinholeStereoCamera(
-                cam_config["cam_width"].as<double>(),
-                cam_config["cam_height"].as<double>(),
-                cam_config["cam_bl"].as<double>(),
-                Kl, Kr, Rl, Rr, Dl, Dr);
+            // if dtype is equidistant (now it is default)
+            if( cam_config["dtype"].IsDefined() )
+            {
+                cam_pin = new PinholeStereoCamera(
+                    cam_config["cam_width"].as<double>(),
+                    cam_config["cam_height"].as<double>(),
+                    cam_config["cam_bl"].as<double>(),
+                    Kl, Kr, R, t, Dl, Dr, true);
+
+            }
+            else
+            // create camera object for EuRoC
+                cam_pin = new PinholeStereoCamera(
+                    cam_config["cam_width"].as<double>(),
+                    cam_config["cam_height"].as<double>(),
+                    cam_config["cam_bl"].as<double>(),
+                    Kl, Kr, R, t, Dl, Dr,false);
         }
+        // else
         else
             cam_pin = new PinholeStereoCamera(
                 cam_config["cam_width"].as<double>(),
@@ -175,51 +218,35 @@ int main(int argc, char **argv)
     // sort them by filename; add leading zeros to make filename-lengths equal if needed
     std::map<std::string, std::string> sorted_imgs_l, sorted_imgs_r;
     int n_imgs_l = 0, n_imgs_r = 0;
-    for (std::list<std::string>::iterator img = imgs_l.begin(); img != imgs_l.end(); ++img)
+    for (std::list<std::string>::iterator img = imgs_l.begin(); img != imgs_l.end(); img++ )
     {
         sorted_imgs_l[std::string(max_len_l - img->length(), '0') + (*img)] = *img;
         n_imgs_l++;
     }
-    for (std::list<std::string>::iterator img = imgs_r.begin(); img != imgs_r.end(); ++img)
+    for (std::list<std::string>::iterator img = imgs_r.begin(); img != imgs_r.end(); img++ )
     {
         sorted_imgs_r[std::string(max_len_r - img->length(), '0') + (*img)] = *img;
         n_imgs_r++;
     }
-    if( n_imgs_l != n_imgs_r)
-    {
-        cout << endl << "Different number of left and right images." << endl;
-        return -1;
-    }
 
-    // ground truth file
-    string gt_name = dataset_dir + "/groundtruth.txt";
-    bool has_gt;
-    vector<Matrix4d> GTposes;
-    if( false ){
-        FILE *fp = fopen(gt_name.c_str(),"r");
-        if (!fp)
+    // skip #frame_offset frames in the beginning, and grab #frame_number frames
+    int k = 0;
+    if( frame_number == 0 )
+        frame_number = min(n_imgs_l,n_imgs_r);
+    for (std::map<std::string, std::string>::iterator it_l = sorted_imgs_l.begin(), it_r = sorted_imgs_r.begin();
+         ( it_l != sorted_imgs_l.end() && it_r != sorted_imgs_r.end() ); k++)
+    {
+        if( (k<frame_offset) || (k>frame_offset+frame_number-1) || ( k % frame_step != 0 ) )
         {
-            has_gt = false;
-            cout << endl << endl << "Error when loading GT poses." << endl << endl;
+            sorted_imgs_l.erase( it_l++ );
+            sorted_imgs_r.erase( it_r++ );
         }
         else
         {
-            has_gt = true;
-            while (!feof(fp)) {
-                Matrix4f P = Matrix4f::Identity();
-                if (fscanf(fp, "%f %f %f %f %f %f %f %f %f %f %f %f",
-                               &P(0,0), &P(0,1), &P(0,2), &P(0,3),
-                               &P(1,0), &P(1,1), &P(1,2), &P(1,3),
-                               &P(2,0), &P(2,1), &P(2,2), &P(2,3) )==12)
-                {
-                    GTposes.push_back( P.cast<double>() );
-                }
-            }
-            fclose(fp);
+            ++it_l;
+            ++it_r;
         }
     }
-    else
-        has_gt = false;
 
     // create scene
     Matrix4d Tcw, Tfw = Matrix4d::Identity(), Tfw_prev = Matrix4d::Identity(), T_inc = Matrix4d::Identity(), T_inc_l = Matrix4d::Identity();
@@ -229,7 +256,7 @@ int main(int argc, char **argv)
     Tcw << 1, 0, 0, 0, 0, 0, 1, 0, 0, -1, 0, 0, 0, 0, 0, 1;
     #ifdef HAS_MRPT
     sceneRepresentation scene("../config/scene_config.ini");
-    scene.initializeScene(Tcw,has_gt);
+    scene.initializeScene(Tcw,false);
     mrpt::utils::CTicTac clock;
     #endif
 
@@ -237,45 +264,41 @@ int main(int argc, char **argv)
     int frame_counter = 0;
     double t1;
     StereoFrameHandler* StVO = new StereoFrameHandler(cam_pin);
-    for (std::map<std::string, std::string>::iterator it_l = sorted_imgs_l.begin(), it_r = sorted_imgs_r.begin();
-         it_l != sorted_imgs_l.end(), it_r != sorted_imgs_r.end(); ++it_l, ++it_r, frame_counter++)
+    for( std::map<std::string, std::string>::iterator it_l = sorted_imgs_l.begin(), it_r = sorted_imgs_r.begin();
+         it_l != sorted_imgs_l.end(), it_r != sorted_imgs_r.end(); ++it_l, ++it_r, frame_counter++ )
     {
-
         // load images
         boost::filesystem::path img_path_l = img_dir_path_l / boost::filesystem::path(it_l->second.c_str());
         boost::filesystem::path img_path_r = img_dir_path_r / boost::filesystem::path(it_r->second.c_str());
         Mat img_l( imread(img_path_l.string(), CV_LOAD_IMAGE_UNCHANGED) );  assert(!img_l.empty()); // it depends on the OpenCV version!!!
-        Mat img_r( imread(img_path_r.string(), CV_LOAD_IMAGE_UNCHANGED) );  assert(!img_r.empty());
-
+        Mat img_r( imread(img_path_r.string(), CV_LOAD_IMAGE_UNCHANGED) );  assert(!img_r.empty());        
         // if images are distorted
-        Mat img_l_rec, img_r_rec;
-        cam_pin->rectifyImagesLR(img_l,img_l_rec,img_r,img_r_rec);
-
-        // initialize (TODO: out of the for loop)
+        if( rectify )
+        {
+            Mat img_l_rec, img_r_rec;
+            cam_pin->rectifyImagesLR(img_l,img_l_rec,img_r,img_r_rec);
+            img_l = img_l_rec;
+            img_r = img_r_rec;
+        }
+        // initialize
         if( frame_counter == 0 )
-            StVO->initialize(img_l_rec,img_r_rec,0);
+            StVO->initialize(img_l,img_r,0);
         // run
         else
         {
-            // PL-StVO
             #ifdef HAS_MRPT
             clock.Tic();
             #endif
-            StVO->insertStereoPair( img_l_rec, img_r_rec, frame_counter );
-
-            // set GT initial pose
-            //Matrix4d gt_inc = inverse_se3( GTposes[frame_counter] ) * GTposes[frame_counter-1];
-
+            // PL-StVO
+            StVO->insertStereoPair( img_l, img_r, frame_counter );
             // solve with robust kernel and IRLS
-            StVO->optimizePose();
-            T_inc   = StVO->curr_frame->DT;
-            cov     = StVO->curr_frame->DT_cov;
-            cov_eig = StVO->curr_frame->DT_cov_eig;
-
+            StVO->optimizePose(  );
             #ifdef HAS_MRPT
             t1 = 1000 * clock.Tac(); //ms
             #endif
-
+            T_inc   = StVO->curr_frame->DT;
+            cov     = StVO->curr_frame->DT_cov;
+            cov_eig = StVO->curr_frame->DT_cov_eig;
             // update scene
             #ifdef HAS_MRPT
             scene.setText(frame_counter,t1,StVO->n_inliers_pt,StVO->matched_pt.size(),StVO->n_inliers_ls,StVO->matched_ls.size());
@@ -283,28 +306,20 @@ int main(int argc, char **argv)
             scene.setPose( T_inc );
             imwrite("../config/aux/img_aux.png",StVO->curr_frame->plotStereoFrame());
             scene.setImage( "../config/aux/img_aux.png" );
-            //scene.setImage( img_path_l.string() );
-            if(has_gt)
-                scene.setGT( GTposes[frame_counter] );
+            //scene.setImage( img_l );
             scene.updateScene();
-            // insert Keyframe when necessary
-            /*if( StVO->needNewKF() ){
-                StVO->currFrameIsKF();
-                scene.setKF();
-            }*/
             #endif
-
             // console output
             cout.setf(ios::fixed,ios::floatfield); cout.precision(8);
-            cout << "Frame: " << frame_counter << " \t Residual error: " << StVO->curr_frame->err_norm;
+            cout << "Frame: " << frame_counter << "\tRes.: " << StVO->curr_frame->err_norm;
             cout.setf(ios::fixed,ios::floatfield); cout.precision(3);
             cout << " \t Proc. time: " << t1 << " ms\t ";
-            cout << "\t Points: " << StVO->matched_pt.size() << " (" << StVO->n_inliers_pt << ") " <<
-                    "\t Lines:  " << StVO->matched_ls.size() << " (" << StVO->n_inliers_ls << ") " << endl;
-
+            if( Config::adaptativeFAST() )  cout << "\t FAST: "   << StVO->orb_fast_th;
+            if( Config::hasPoints())        cout << "\t Points: " << StVO->matched_pt.size() << " (" << StVO->n_inliers_pt << ") " ;
+            if( Config::hasLines() )        cout << "\t Lines:  " << StVO->matched_ls.size() << " (" << StVO->n_inliers_ls << ") " ;
+            cout << endl;
             // update StVO
             StVO->updateFrame();
-
         }
     }
 

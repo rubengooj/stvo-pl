@@ -24,10 +24,11 @@
 using namespace std;
 
 #include <opencv/cv.h>
+#include <opencv2/calib3d.hpp>
 #include <opencv2/features2d/features2d.hpp>
-#include <opencv2/line_descriptor.hpp>
+#include <line_descriptor_custom.hpp>
 using namespace cv;
-using namespace cv::line_descriptor;
+using namespace line_descriptor;
 
 #include <eigen3/Eigen/Core>
 using namespace Eigen;
@@ -44,7 +45,7 @@ private:
     Matrix3d            K;
     bool                dist;
     Matrix<double,5,1>  d;
-    Mat                 Kl, Kr, Dl, Dr, Rl, Rr, Pl, Pr;
+    Mat                 Kl, Kr, Dl, Dr, Rl, Rr, Pl, Pr, R, t, Q;
     Mat                 undistmap1l, undistmap2l, undistmap1r, undistmap2r;
 
 public:
@@ -54,7 +55,8 @@ public:
     PinholeStereoCamera( int width_, int height_, double fx_, double fy_, double cx_, double cy_, double b_, Mat Rl, Mat Rr,
                          double d0 = 0.0, double d1 = 0.0, double d2 = 0.0, double d3 = 0.0, double d4 = 0.0);
 
-    PinholeStereoCamera(int width_, int height_, double b_, Mat Kl_, Mat Kr_, Mat Rl_, Mat Rr_, Mat Dl_, Mat Dr_);
+    //PinholeStereoCamera(int width_, int height_, double b_, Mat Kl_, Mat Kr_, Mat Rl_, Mat Rr_, Mat Dl_, Mat Dr_, bool equi );
+    PinholeStereoCamera(int width_, int height_, double b_, Mat Kl_, Mat Kr_, Mat R_, Mat t_, Mat Dl_, Mat Dr_, bool equi );
 
     ~PinholeStereoCamera();
 

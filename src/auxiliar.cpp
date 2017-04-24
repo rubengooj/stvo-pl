@@ -439,3 +439,34 @@ double vector_stdv(vector<double> v, double v_mean)
         e += (v[i] - v_mean)*(v[i] - v_mean);
     return sqrt(1.0/v.size()*e);
 }
+
+double vector_stdv_mad_nozero( vector<double> residues)
+{
+    if( residues.size() != 0 )
+    {
+        // Return the standard deviation of vector with MAD estimation
+        int n_samples = residues.size();
+        sort( residues.begin(),residues.end() );
+        // filter zeros
+        vector<double> residues_f;
+        for( int i = 0; i < n_samples; i++ )
+            if( residues[i] > 0.0f )
+                residues_f.push_back( residues[i] );
+
+        // estimate robust stdv
+        n_samples = residues_f.size();
+        if( n_samples != 0 )
+        {
+            double median = residues_f[ n_samples/2 ];
+            for( int i = 0; i < n_samples; i++)
+                residues_f[i] = fabsf( residues_f[i] - median );
+            sort( residues_f.begin(),residues_f.end() );
+            double MAD = residues_f[ n_samples/2 ];
+            return 1.4826 * MAD;
+        }
+        else
+            return 0.0;
+    }
+    else
+        return 0.0;
+}

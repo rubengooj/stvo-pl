@@ -39,7 +39,7 @@
  //
  //M*/
 
-#include "precomp.hpp"
+#include "precomp_custom.hpp"
 
 #define MAX_B 37
 double ARRAY_RESIZE_FACTOR = 1.1;    // minimum is 1.0

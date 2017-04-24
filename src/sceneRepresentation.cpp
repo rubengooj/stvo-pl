@@ -229,19 +229,6 @@ void sceneRepresentation::initializeScene(Matrix4d x_0, bool has_gt){
     lineObj->setColor(0,0,0);
     theScene->insert( lineObj );
 
-    // =========================================
-    // TODO: add flag
-    // =========================================
-    elliObjL = opengl::CSetOfObjects::Create();
-    elliObjL->setScale(selli);
-    elliObjL->setPose(pose_0);
-    theScene->insert(elliObjL);
-    elliObjP = opengl::CSetOfObjects::Create();
-    elliObjP->setScale(selli);
-    elliObjP->setPose(pose_0);
-    theScene->insert(elliObjP);
-    // =========================================
-
     // Initialize the point cloud
     pointObj = opengl::CPointCloud::Create();
     pointObj->setPointSize(3.0);

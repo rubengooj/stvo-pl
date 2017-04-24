@@ -10,7 +10,8 @@
  //                           License Agreement
  //                For Open Source Computer Vision Library
  //
- // Copyright (C) 2014, Biagio Montesano, all rights reserved.
+ // Copyright (C) 2014, Mohammad Norouzi, Ali Punjani, David J. Fleet,
+ // all rights reserved.
  // Third party copyrights are property of their respective owners.
  //
  // Redistribution and use in source and binary forms, with or without modification,
@@ -39,39 +40,76 @@
  //
  //M*/
 
-#include "perf_precomp.hpp"
+#ifndef __OPENCV_BITARRAY_HPP
+#define __OPENCV_BITARRAY_HPP
 
-using namespace cv;
-using namespace cv::line_descriptor;
-using namespace std;
-using namespace perf;
-using std::tr1::make_tuple;
-using std::tr1::get;
+#ifdef _MSC_VER
+#pragma warning( disable : 4267 )
+#endif
 
-typedef perf::TestBaseWithParam<std::string> file_str;
+#include "types_custom.hpp"
+#include <stdio.h>
+#include <math.h>
+#include <string.h>
 
-#define IMAGES \
-  "cv/line_descriptor/cameraman.jpg", "cv/shared/lena.png"
-
-PERF_TEST_P(file_str, descriptors, testing::Values(IMAGES))
+/* class defining a sequence of bits */
+class bitarray
 {
-  std::string filename = getDataPath( GetParam() );
 
-  Mat frame = imread( filename, 1 );
+ public:
+  /* pointer to bits sequence and sequence's length */
+  UINT32 *arr;
+  UINT32 length;
 
-  if( frame.empty() )
-    FAIL()<< "Unable to load source image " << filename;
-
-  Mat descriptors;
-  std::vector<KeyLine> keylines;
-  Ptr<BinaryDescriptor> bd = BinaryDescriptor::createBinaryDescriptor();
-
-  TEST_CYCLE()
+  /* constructor setting default values */
+  bitarray()
   {
-    bd->detect( frame, keylines );
-    bd->compute( frame, keylines, descriptors );
+    arr = NULL;
+    length = 0;
   }
 
-  SANITY_CHECK_NOTHING();
+  /* constructor setting sequence's length */
+  bitarray( UINT64 _bits )
+  {
+    init( _bits );
+  }
 
-}
+  /* initializer of private fields */
+  void init( UINT64 _bits )
+  {
+    length = (UINT32) ceil( _bits / 32.00 );
+    arr = new UINT32[length];
+    erase();
+  }
+
+  /* destructor */
+  ~bitarray()
+  {
+    if( arr )
+      delete[] arr;
+  }
+
+  inline void flip( UINT64 index )
+  {
+    arr[index >> 5] ^= ( (UINT32) 0x01 ) << ( index % 32 );
+  }
+
+  inline void set( UINT64 index )
+  {
+    arr[index >> 5] |= ( (UINT32) 0x01 ) << ( index % 32 );
+  }
+
+  inline UINT8 get( UINT64 index )
+  {
+    return ( arr[index >> 5] & ( ( (UINT32) 0x01 ) << ( index % 32 ) ) ) != 0;
+  }
+
+  /* reserve menory for an UINT32 */
+  inline void erase()
+  {
+    memset( arr, 0, sizeof(UINT32) * length );
+  }
+
+};
+
+#endif

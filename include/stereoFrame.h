@@ -28,10 +28,11 @@ using namespace std;
 
 #include <opencv/cv.h>
 #include <opencv2/features2d/features2d.hpp>
-#include <opencv2/line_descriptor.hpp>
-#include <opencv2/line_descriptor/descriptor.hpp>
+
+#include <line_descriptor_custom.hpp>
+#include <line_descriptor/descriptor_custom.hpp>
 using namespace cv;
-using namespace cv::line_descriptor;
+using namespace line_descriptor;
 
 #include <eigen3/Eigen/Core>
 using namespace Eigen;
@@ -48,25 +49,29 @@ namespace StVO{
 
 class StereoFrame
 {
+
 public:
 
     StereoFrame();
     StereoFrame(const Mat img_l_, const Mat img_r_, const int idx_, PinholeStereoCamera* cam_ );
-    StereoFrame(const Mat img_l_, const Mat img_r_, const Mat img_s_, const int idx_, PinholeStereoCamera* cam_ );
     ~StereoFrame();
 
-    void extractStereoFeatures();
-    void extractInitialStereoFeatures();
-    void detectFeatures(Mat img, vector<KeyPoint> &points, Mat &pdesc, vector<KeyLine> &lines, Mat &ldesc, double min_line_length);
+    void extractInitialStereoFeatures( int fast_th = 20 );
+    void extractStereoFeatures( int fast_th = 20 );
+    void detectFeatures(Mat img, vector<KeyPoint> &points, Mat &pdesc, vector<KeyLine> &lines, Mat &ldesc, double min_line_length, int fast_th = 20);
+    void detectPointFeatures( Mat img, vector<KeyPoint> &points, Mat &pdesc, int fast_th = 20 );
+    void detectLineFeatures( Mat img, vector<KeyLine> &lines, Mat &ldesc, double min_line_length );
     void matchPointFeatures(BFMatcher* bfm, Mat pdesc_1, Mat pdesc_2, vector<vector<DMatch>> &pmatches_12);
-    void matchLineFeatures(Ptr<BinaryDescriptorMatcher> bdm, Mat ldesc_1, Mat ldesc_2, vector<vector<DMatch>> &lmatches_12 );
-    void matchLineFeaturesBFM(BFMatcher* bfm, Mat ldesc_1, Mat ldesc_2, vector<vector<DMatch>> &lmatches_12 );
+    void matchLineFeatures(BFMatcher* bfm, Mat ldesc_1, Mat ldesc_2, vector<vector<DMatch>> &lmatches_12 );
     void pointDescriptorMAD( const vector<vector<DMatch>> matches, double &nn_mad, double &nn12_mad );
     void lineDescriptorMAD( const vector<vector<DMatch>> matches, double &nn_mad, double &nn12_mad );
     Mat  plotStereoFrame();
+    Mat  plotStereoMatches();
+
+    double lineSegmentOverlapStereo(double spl_obs, double epl_obs, double spl_proj, double epl_proj  );
 
     int frame_idx;
-    Mat img_l, img_r, img_s;
+    Mat img_l, img_r;
     Matrix4d Tfw;
     Matrix4d DT;
 

@@ -39,7 +39,7 @@
  //
  //M*/
 
-#include "precomp.hpp"
+#include "precomp_custom.hpp"
 
 #ifdef _MSC_VER
     #if (_MSC_VER <= 1700)

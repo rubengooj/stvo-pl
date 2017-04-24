@@ -44,9 +44,11 @@ public:
     void f2fTracking();
     void optimizePose();
     void optimizePose(Matrix4d DT_ini);
-    void setMotionPrior(Vector6d prior_inc_, Matrix6d prior_cov_);
 
-    int  n_inliers, n_inliers_pt, n_inliers_ls, max_idx_pt, max_idx_ls, max_idx_pt_prev_kf, max_idx_ls_prev_kf;
+    double lineSegmentOverlap( Vector2d spl_obs, Vector2d epl_obs, Vector2d spl_proj, Vector2d epl_proj  );
+
+    // adaptative fast
+    int orb_fast_th;
 
     list<PointFeature*> matched_pt;
     list<LineFeature*>  matched_ls;
@@ -55,15 +57,19 @@ public:
     StereoFrame* curr_frame;
     PinholeStereoCamera* cam;
 
-    Vector6d prior_inc;
-    Matrix6d prior_cov;
+    int  n_inliers, n_inliers_pt, n_inliers_ls;
+
+    // slam-specific variables
+    bool     prev_f_iskf;
+    double   entropy_first_prevKF;
+    Matrix4d T_prevKF;
+    Matrix6d cov_prevKF_currF;
 
 private:
 
     void removeOutliers( Matrix4d DT );
     void gaussNewtonOptimization(Matrix4d &DT, Matrix6d &DT_cov, double &err_, int max_iters);
-    void optimizeFunctions_nonweighted(Matrix4d DT, Matrix6d &H, Vector6d &g, double &e);
-    void optimizeFunctions_uncweighted(Matrix4d DT, Matrix6d &H, Vector6d &g, double &e);
+    void optimizeFunctions(Matrix4d DT, Matrix6d &H, Vector6d &g, double &e);
 
 };
 

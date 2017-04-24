@@ -42,7 +42,7 @@
 #ifndef __OPENCV_LINE_DESCRIPTOR_HPP__
 #define __OPENCV_LINE_DESCRIPTOR_HPP__
 
-#include "opencv2/line_descriptor/descriptor.hpp"
+#include "line_descriptor/descriptor_custom.hpp"
 
 /** @defgroup line_descriptor Binary descriptors for lines extracted from an image
 

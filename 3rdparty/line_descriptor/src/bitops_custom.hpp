@@ -43,7 +43,7 @@
 #ifndef __OPENCV_BITOPTS_HPP
 #define __OPENCV_BITOPTS_HPP
 
-#include "precomp.hpp"
+#include "precomp_custom.hpp"
 
 #ifdef _MSC_VER
 # include <intrin.h>

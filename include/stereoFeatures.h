@@ -21,6 +21,7 @@
 
 #pragma once
 #include <eigen3/Eigen/Core>
+#include <config.h>
 using namespace Eigen;
 
 namespace StVO{
@@ -33,17 +34,18 @@ public:
     PointFeature( Vector3d P_, Vector2d pl_obs_);
     PointFeature( Vector2d pl_, double disp_, Vector3d P_ );
     PointFeature( Vector2d pl_, double disp_, Vector3d P_, int idx_ );
+    PointFeature( Vector2d pl_, double disp_, Vector3d P_, int idx_, int level );
     PointFeature( Vector2d pl_, double disp_, Vector3d P_, Vector2d pl_obs_ );
     ~PointFeature(){};
-
-    PointFeature( Vector2d pl_, double disp_, Vector3d P_, int idx_, int rgb_ );
 
     int idx;
     Vector2d pl, pl_obs;
     double   disp;
     Vector3d P;
     bool inlier;
-    int rgb;
+
+    int level;
+    double sigma2 = 1.0;
 
 };
 
@@ -65,6 +67,10 @@ public:
                  Vector3d le_,  double angle_, int idx_);
 
     LineFeature( Vector2d spl_, double sdisp_, Vector3d sP_,
+                 Vector2d epl_, double edisp_, Vector3d eP_,
+                 Vector3d le_,  double angle_, int idx_, int level);
+
+    LineFeature( Vector2d spl_, double sdisp_, Vector3d sP_,
                  Vector2d epl_, double edisp_, Vector3d eP_, Vector3d le_);
 
     LineFeature( Vector2d spl_, double sdisp_, Vector3d sP_,
@@ -78,6 +84,9 @@ public:
     Vector3d sP,eP;
     Vector3d le, le_obs;
     bool inlier;
+
+    int level;
+    double sigma2 = 1.0;
 
 };
 

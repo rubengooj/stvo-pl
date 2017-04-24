@@ -39,7 +39,7 @@
  //
  //M*/
 
-#include "precomp.hpp"
+#include "precomp_custom.hpp"
 
 namespace cv
 {

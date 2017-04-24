@@ -24,7 +24,11 @@
 #include <iostream>
 
 #include <cv.h>
+#include <opencv2/features2d/features2d.hpp>
+#include <line_descriptor_custom.hpp>
+#include <line_descriptor/descriptor_custom.hpp>
 using namespace cv;
+using namespace line_descriptor;
 
 #include <vector>
 using namespace std;
@@ -68,6 +72,7 @@ double angDiff_d(double alpha, double beta);
 // Auxiliar functions and structs for vectors
 double vector_stdv_mad( VectorXf residues);
 double vector_stdv_mad( vector<double> residues);
+double vector_stdv_mad_nozero( vector<double> residues);
 double vector_mean(vector<double> v);
 double vector_stdv(vector<double> v);
 double vector_stdv(vector<double> v, double v_mean);
@@ -100,6 +105,13 @@ struct sort_descriptor_by_queryIdx
     }
 };
 
+struct sort_descriptor_by_2nd_queryIdx
+{
+    inline bool operator()(const vector<DMatch>& a, const vector<DMatch>& b){
+        return ( a[1].queryIdx < b[1].queryIdx );
+    }
+};
+
 struct sort_descriptor_by_trainIdx
 {
     inline bool operator()(const vector<DMatch>& a, const vector<DMatch>& b){
@@ -111,6 +123,20 @@ struct sort_confmat_by_score
 {
     inline bool operator()(const Vector2d& a, const Vector2d& b){
         return ( a(1) > b(1) );
+    }
+};
+
+struct sort_lines_by_response
+{
+    inline bool operator()(const KeyLine& a, const KeyLine& b){
+        return ( a.response > b.response );
+    }
+};
+
+struct sort_lines_by_length
+{
+    inline bool operator()(const KeyLine& a, const KeyLine& b){
+        return ( a.lineLength > b.lineLength );
     }
 };
 

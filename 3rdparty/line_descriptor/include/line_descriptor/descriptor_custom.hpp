@@ -892,13 +892,13 @@ the one used in *BinaryDescriptor* class, data associated to a line's extremes i
 in octave it was extracted from, coincide. KeyLine's field *class_id* is used as an index to
 indicate the order of extraction of a line inside a single octave.
 */
-class CV_EXPORTS LSDDetector : public Algorithm
+class CV_EXPORTS LSDDetectorC : public Algorithm
 {
 public:
 
 /* constructor */
 /* CV_WRAP */
-LSDDetector()
+LSDDetectorC()
 {
 }
 ;
@@ -915,9 +915,9 @@ struct LSDOptions{
     double min_length;
 } options;
 
-/** @brief Creates ad LSDDetector object, using smart pointers.
+/** @brief Creates ad LSDDetectorC object, using smart pointers.
  */
-static Ptr<LSDDetector> createLSDDetector();
+static Ptr<LSDDetectorC> createLSDDetectorC();
 
 /** @brief Detect lines inside an image.
 
