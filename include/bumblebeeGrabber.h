@@ -27,7 +27,7 @@
 #include <mrpt/utils/CConfigFileBase.h>
 #include <mrpt/utils/CTicTac.h>
 #include <mrpt/hwdrivers/CImageGrabber_FlyCapture2.h>
-#include <mrpt/slam/CObservationStereoImages.h>
+#include <mrpt/obs/CObservationStereoImages.h>
 #include <eigen3/Eigen/Core>
 
 using namespace mrpt;

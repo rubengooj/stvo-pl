@@ -35,6 +35,8 @@ class StereoFrameHandler
 
 public:
 
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
+
     StereoFrameHandler( PinholeStereoCamera* cam_ );
     ~StereoFrameHandler();
 

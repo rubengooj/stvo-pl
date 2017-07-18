@@ -52,6 +52,8 @@ class StereoFrame
 
 public:
 
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
+
     StereoFrame();
     StereoFrame(const Mat img_l_, const Mat img_r_, const int idx_, PinholeStereoCamera* cam_ );
     ~StereoFrame();
