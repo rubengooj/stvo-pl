@@ -1,25 +1,30 @@
 /*****************************************************************************
-**   Stereo Visual Odometry by combining point and line segment features	**
+**      Stereo VO and SLAM by combining point and line segment features     **
 ******************************************************************************
-**																			**
-**	Copyright(c) 2016, Ruben Gomez-Ojeda, University of Malaga              **
-**	Copyright(c) 2016, MAPIR group, University of Malaga					**
-**																			**
-**  This program is free software: you can redistribute it and/or modify	**
-**  it under the terms of the GNU General Public License (version 3) as		**
-**	published by the Free Software Foundation.								**
-**																			**
-**  This program is distributed in the hope that it will be useful, but		**
-**	WITHOUT ANY WARRANTY; without even the implied warranty of				**
-**  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the			**
-**  GNU General Public License for more details.							**
-**																			**
-**  You should have received a copy of the GNU General Public License		**
-**  along with this program.  If not, see <http://www.gnu.org/licenses/>.	**
-**																			**
+**                                                                          **
+**  Copyright(c) 2016-2018, Ruben Gomez-Ojeda, University of Malaga         **
+**  Copyright(c) 2016-2018, David Zuñiga-Noël, University of Malaga         **
+**  Copyright(c) 2016-2018, MAPIR group, University of Malaga               **
+**                                                                          **
+**  This program is free software: you can redistribute it and/or modify    **
+**  it under the terms of the GNU General Public License (version 3) as     **
+**  published by the Free Software Foundation.                              **
+**                                                                          **
+**  This program is distributed in the hope that it will be useful, but     **
+**  WITHOUT ANY WARRANTY; without even the implied warranty of              **
+**  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the            **
+**  GNU General Public License for more details.                            **
+**                                                                          **
+**  You should have received a copy of the GNU General Public License       **
+**  along with this program.  If not, see <http://www.gnu.org/licenses/>.   **
+**                                                                          **
 *****************************************************************************/
 
 #include <sceneRepresentation.h>
+
+#include <opencv2/imgproc.hpp>
+
+#include <iostream>
 
 // Auxiliar functions
 template <typename T>
@@ -75,10 +80,10 @@ sceneRepresentation::sceneRepresentation(string configFile){
     saxis           = config.read_double("Scene","saxis",0.5f);
     sfreq           = config.read_double("Scene","sfreq",3.f);
     szoom           = config.read_double("Scene","szoom",3.f);
-    selli           = config.read_double("Scene","selli",1.f);
+    selli           = config.read_double("Scene","selli",10.f);
     selev           = config.read_double("Scene","selev",30.f);
     sazim           = config.read_double("Scene","sazim",-135.f);
-    sfrust          = config.read_double("Scene","sfrust",0.2f);
+    sfrust          = config.read_double("Scene","sfrust",0.05f);
     slinef          = config.read_double("Scene","slinef",0.1f);
     win             = new CDisplayWindow3D("3D Scene",1920,1080);
 
@@ -87,7 +92,7 @@ sceneRepresentation::sceneRepresentation(string configFile){
     hasAxes         = config.read_bool("Scene","hasAxes",true);
     hasLegend       = config.read_bool("Scene","hasLegend",false);
     hasHelp         = config.read_bool("Scene","hasHelp",false);
-    hasCov          = config.read_bool("Scene","hasCov",true);
+    hasCov          = config.read_bool("Scene","hasCov",false);
     hasGT           = config.read_bool("Scene","hasGT",false);
     hasTraj         = config.read_bool("Scene","hasTraj",true);
     hasChange       = config.read_bool("Scene","hasChange",false);
@@ -155,6 +160,7 @@ void sceneRepresentation::initializeScene(Matrix4d x_0, bool has_gt){
             frustObj->setPose(pose_0+frustumL_);
             frustObj->setLineWidth (slinef);
             frustObj->setScale(sfrust);
+            frustObj->setColor(0.f,0.f,0.3f);
             theScene->insert(frustObj);
         }
         frustObj1 = opengl::CFrustum::Create();
@@ -240,18 +246,11 @@ void sceneRepresentation::initializeScene(Matrix4d x_0, bool has_gt){
     setLegend();
 
     image = theScene->createViewport("image");
-    if(isKitti){
-        if(hasImg)
-            image->setViewportPosition(20, 20, 621, 188);
-        else
-            image->setViewportPosition(2000, 2000, 621, 188);
-    }
-    else{
-        if(hasImg)
-            image->setViewportPosition(20, 20, 400, 300);
-        else
-            image->setViewportPosition(2000, 2000, 400, 300);
-    }
+    img_sz = cv::Size(320, 240);
+    if(hasImg)
+        image->setViewportPosition(20, 20, 320, 240);
+    else
+        image->setViewportPosition(2000, 2000, 320, 240);
 
     // Re-paint the scene
     win->unlockAccess3DScene();
@@ -305,7 +304,8 @@ bool sceneRepresentation::updateScene(){
         v_auxgt(2) = -y_;        
         v_auxgt(4) = -c_;
         v_auxgt(5) =  b_;
-        pose_gt = TPose3D(v_auxgt(0),v_auxgt(1),v_auxgt(2),v_auxgt(3),v_auxgt(4),v_auxgt(5));
+        pose_gt = CPose3D(TPose3D(v_auxgt(0),v_auxgt(1),v_auxgt(2),v_auxgt(3),v_auxgt(4),v_auxgt(5)));
+
 
         if(hasTraj){
             opengl::CSimpleLinePtr obj = opengl::CSimpleLine::Create();
@@ -349,14 +349,14 @@ bool sceneRepresentation::updateScene(){
 
     // Update the image
     if(hasImg){
-        image->setImageView_fast( img_mrpt_image );
-        //image->setImageView( img_mrpt_image );
+        //image->setImageView_fast( img_mrpt_image );
+        image->setImageView( img_mrpt_image );
     }
 
     // Update the lines
     lineObj->clear();
     if(hasLines){
-        plotLinesCovariances();
+        //plotLinesCovariances();
         for(int i = 0; i < size(lData,2); i++)
             lineObj->appendLine(lData(0,i),lData(1,i),lData(2,i), lData(3,i),lData(4,i),lData(5,i));
         lineObj->setPose(pose);
@@ -365,7 +365,7 @@ bool sceneRepresentation::updateScene(){
     // Update the points
     pointObj->clear();
     if(hasPoints){
-        plotPointsCovariances();
+        //plotPointsCovariances();
         for(int i = 0; i < size(pData,2); i++)
             pointObj->insertPoint(pData(0,i),pData(1,i),pData(2,i));
         pointObj->setPose(pose);
@@ -490,19 +490,11 @@ bool sceneRepresentation::updateScene(){
                 elliObj->setScale(selli);
         }
         else if ( (key == 105) || (key == 73) ){    // I        image
-            hasImg   = !hasImg;          
-            if(isKitti){
-                if(hasImg)
-                    image->setViewportPosition(20, 20, 621, 188);
-                else
-                    image->setViewportPosition(2000, 2000, 621, 188);
-            }
-            else{
-                if(hasImg)
-                    image->setViewportPosition(20, 20, 400, 300);
-                else
-                    image->setViewportPosition(2000, 2000, 400, 300);
-            }
+            hasImg   = !hasImg;
+            if(hasImg)
+                image->setViewportPosition(20, 20, img_sz.width, img_sz.height);
+            else
+                image->setViewportPosition(2000, 2000, img_sz.width, img_sz.height);
 
         }
     }
@@ -511,7 +503,7 @@ bool sceneRepresentation::updateScene(){
 
 }
 
-bool sceneRepresentation::updateScene( list<PointFeature*> matched_pt ){
+bool sceneRepresentation::updateScene(list<PointFeature*> matched_pt, list<LineFeature*> matched_ls ){
 
     theScene = win->get3DSceneAndLock();
     bool restart = false;
@@ -599,6 +591,11 @@ bool sceneRepresentation::updateScene( list<PointFeature*> matched_pt ){
 
     // Update the image
     if(hasImg){
+        double x, y, width, height;
+        image->getViewportPosition(x, y, width, height);
+        if (static_cast<size_t>(width) != img_mrpt_image.getWidth() ||
+                static_cast<size_t>(height) != img_mrpt_image.getHeight())
+            image->setViewportPosition(20, 20, img_mrpt_image.getWidth(), img_mrpt_image.getHeight());
         image->setImageView_fast( img_mrpt_image );
         //image->setImageView( img_mrpt_image );
     }
@@ -606,27 +603,33 @@ bool sceneRepresentation::updateScene( list<PointFeature*> matched_pt ){
     // Update the lines
     lineObj->clear();
     if(hasLines){
-        plotLinesCovariances();
-        for(int i = 0; i < size(lData,2); i++)
-            lineObj->appendLine(lData(0,i),lData(1,i),lData(2,i), lData(3,i),lData(4,i),lData(5,i));
+        //plotLinesCovariances();
+        for( auto it = matched_ls.begin(); it!=matched_ls.end(); it++ )
+        {
+            if( (*it)->inlier )
+                lineObj->appendLine( (*it)->sP(0), (*it)->sP(1), (*it)->sP(2),   (*it)->eP(0), (*it)->eP(1), (*it)->eP(2) );
+        }
         lineObj->setPose(pose);
     }
 
     // Update the points
     pointObj->clear();
     if(hasPoints){
-        /*CPointCloudColouredPtr map_points = CPointCloudColoured::Create();
-        map_points->setPointSize(2);
-        map_points->enablePointSmooth(1);
-        map_points->setPose(pose);
+//        CPointCloudColouredPtr map_points = CPointCloudColoured::Create();
+//        map_points->setPointSize(2);
+//        map_points->enablePointSmooth(1);
+//        map_points->setPose(pose);
 
-        for( auto it = matched_pt.begin(); it != matched_pt.end(); it++ ){
-            map_points->setPo
+//        for( auto it = matched_pt.begin(); it != matched_pt.end(); it++ ){
+//            map_points->setPo
+//        }
+//        theScene->insert( map_points );
+        //plotPointsCovariances();
+        for( auto it = matched_pt.begin(); it!=matched_pt.end(); it++ )
+        {
+            if( (*it)->inlier )
+                pointObj->insertPoint( (*it)->P(0), (*it)->P(1), (*it)->P(2) );
         }
-        theScene->insert( map_points );*/
-        plotPointsCovariances();
-        for(int i = 0; i < size(pData,2); i++)
-            pointObj->insertPoint(pData(0,i),pData(1,i),pData(2,i));
         pointObj->setPose(pose);
     }
 
@@ -750,18 +753,10 @@ bool sceneRepresentation::updateScene( list<PointFeature*> matched_pt ){
         }
         else if ( (key == 105) || (key == 73) ){    // I        image
             hasImg   = !hasImg;
-            if(isKitti){
-                if(hasImg)
-                    image->setViewportPosition(20, 20, 621, 188);
-                else
-                    image->setViewportPosition(2000, 2000, 621, 188);
-            }
-            else{
-                if(hasImg)
-                    image->setViewportPosition(20, 20, 400, 300);
-                else
-                    image->setViewportPosition(2000, 2000, 400, 300);
-            }
+            if(hasImg)
+                image->setViewportPosition(20, 20, img_sz.width, img_sz.height);
+            else
+                image->setViewportPosition(2000, 2000, img_sz.width, img_sz.height);
 
         }
     }
@@ -903,13 +898,29 @@ void sceneRepresentation::setComparison(Matrix4d xcomp_){
     xcomp = xcomp_;
 }
 
-void sceneRepresentation::setImage(Mat image_){
-    IplImage iplimage = image_;
-    //IplImage* iplimage = new IplImage(image_);
-    img_mrpt_image.loadFromIplImage( &iplimage );
+void sceneRepresentation::setImage(const Mat &image_){
+
+    Mat aux;
+    img_sz = cv::Size(0.5*image_.cols, 0.5*image_.rows);
+    cv::resize( image_, aux, img_sz );
+
+    bool color;
+    if (aux.channels() == 3) {
+        aux.convertTo(aux, CV_8UC3);
+        color = true;
+    }
+    else if (aux.channels() == 1) {
+        aux.convertTo(aux, CV_8UC1);
+        color = false;
+    }
+    else
+        throw std::runtime_error(std::string("[SceneRepresentation->setImage] unsupported image format: ") +
+                                 std::to_string(aux.channels()));
+
+    img_mrpt_image.loadFromMemoryBuffer(img_sz.width, img_sz.height, color, aux.data, false);
 }
 
-void sceneRepresentation::setImage(string image_){
+void sceneRepresentation::setImage(const string &image_){
     img_mrpt_image.loadFromFile(image_,1);
 }
 

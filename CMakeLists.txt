@@ -1,8 +1,8 @@
-project( StVO-PL )
+project( stvo-pl )
 
 cmake_minimum_required(VERSION 2.7)
-find_package( OpenCV 3 REQUIRED)
-find_package(Boost REQUIRED COMPONENTS thread system filesystem)	
+find_package(OpenCV 3 REQUIRED)
+find_package(Boost REQUIRED COMPONENTS regex thread system filesystem)	
 
 if(COMMAND cmake_policy)
   	cmake_policy(SET CMP0003 NEW)	
@@ -15,7 +15,12 @@ set(HAS_MRPT ${DEFAULT_HAS_MRPT} CACHE BOOL "Build the PointGrey Bumblebee2 SVO 
 
 SET(BUILD_SHARED_LIBS ON)
 SET(CMAKE_MODULE_PATH $ENV{CMAKE_MODULE_PATH})
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x -O3 -mtune=native -march=native")
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -O3 -mtune=native -march=native")
+
+add_definitions(-DBOOST_NO_CXX11_SCOPED_ENUMS)
+
+set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/build)
+set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
 # MRPT library (optional, only with representation purposes)
 if(HAS_MRPT)
@@ -25,15 +30,7 @@ add_definitions(-DHAS_MRPT)
 endif(HAS_MRPT)
 
 # YAML library
-find_library(YAML_CPP_LIBRARIES yaml-cpp)
-if(NOT YAML_CPP_LIBRARIES)
-  # If yaml-cpp not found in the system, try finding it as a user CMake-generated project
-  find_package(yaml-cpp REQUIRED)
-  include_directories(${YAML_CPP_INCLUDE_DIRS})
-endif(NOT YAML_CPP_LIBRARIES)
-
-set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/build)
-set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
+FIND_PACKAGE(yaml-cpp REQUIRED CONFIG PATHS ${YAML_PATHS})
 
 # Include dirs
 include_directories(
@@ -41,7 +38,7 @@ include_directories(
   ${Eigen3_INCLUDE_DIRS}
   ${OpenCV_INCLUDE_DIRS}
   ${Boost_INCLUDE_DIRS}
-  ${YAML_CPP_INCLUDE_DIRS}
+  ${YAML_CPP_INCLUDE_DIR}
   ${PROJECT_SOURCE_DIR}/3rdparty/line_descriptor/include/
 )
 
@@ -57,24 +54,22 @@ list(APPEND LINK_LIBS
 if(HAS_MRPT)
 list(APPEND SOURCEFILES
   src/sceneRepresentation.cpp
-  src/auxiliar.cpp
-  src/bumblebeeGrabber.cpp
-  src/config.cpp
-  src/pinholeStereoCamera.cpp
-  src/stereoFeatures.cpp
-  src/stereoFrame.cpp
-  src/stereoFrameHandler.cpp
 )
-else()
+endif()
+
 list(APPEND SOURCEFILES
   src/auxiliar.cpp
   src/config.cpp
+  src/dataset.cpp
+  src/gridStructure.cpp
+  src/lineIterator.cpp
+  src/matching.cpp
   src/pinholeStereoCamera.cpp
   src/stereoFeatures.cpp
   src/stereoFrame.cpp
   src/stereoFrameHandler.cpp
+  src/timer.cpp
 )
-endif()
 
 # List all files (headers) contained by StVO-PL library
 file(GLOB_RECURSE all_include_files RELATIVE "${CMAKE_SOURCE_DIR}" *.h *.hpp)
@@ -92,11 +87,11 @@ target_link_libraries(stvo ${LINK_LIBS})
 endif()
 
 # Applications
-if(HAS_MRPT)
-add_executable       ( bbStVO app/bbStVO.cpp )
-target_link_libraries( bbStVO stvo )
 add_executable       ( imagesStVO app/imagesStVO.cpp )
 target_link_libraries( imagesStVO stvo )
-endif(HAS_MRPT)
+
+
+
+
 
 

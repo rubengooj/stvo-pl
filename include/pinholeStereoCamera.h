@@ -1,22 +1,23 @@
 /*****************************************************************************
-**   Stereo Visual Odometry by combining point and line segment features	**
+**      Stereo VO and SLAM by combining point and line segment features     **
 ******************************************************************************
-**																			**
-**	Copyright(c) 2016, Ruben Gomez-Ojeda, University of Malaga              **
-**	Copyright(c) 2016, MAPIR group, University of Malaga					**
-**																			**
-**  This program is free software: you can redistribute it and/or modify	**
-**  it under the terms of the GNU General Public License (version 3) as		**
-**	published by the Free Software Foundation.								**
-**																			**
-**  This program is distributed in the hope that it will be useful, but		**
-**	WITHOUT ANY WARRANTY; without even the implied warranty of				**
-**  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the			**
-**  GNU General Public License for more details.							**
-**																			**
-**  You should have received a copy of the GNU General Public License		**
-**  along with this program.  If not, see <http://www.gnu.org/licenses/>.	**
-**																			**
+**                                                                          **
+**  Copyright(c) 2016-2018, Ruben Gomez-Ojeda, University of Malaga         **
+**  Copyright(c) 2016-2018, David Zuñiga-Noël, University of Malaga         **
+**  Copyright(c) 2016-2018, MAPIR group, University of Malaga               **
+**                                                                          **
+**  This program is free software: you can redistribute it and/or modify    **
+**  it under the terms of the GNU General Public License (version 3) as     **
+**  published by the Free Software Foundation.                              **
+**                                                                          **
+**  This program is distributed in the hope that it will be useful, but     **
+**  WITHOUT ANY WARRANTY; without even the implied warranty of              **
+**  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the            **
+**  GNU General Public License for more details.                            **
+**                                                                          **
+**  You should have received a copy of the GNU General Public License       **
+**  along with this program.  If not, see <http://www.gnu.org/licenses/>.   **
+**                                                                          **
 *****************************************************************************/
 
 #pragma once
@@ -38,10 +39,10 @@ class PinholeStereoCamera
 {
 
 private:
-    const int           width, height;
+    int                 width, height;
     double              fx, fy;
     double              cx, cy;
-    const double        b;
+    double              b;
     Matrix3d            K;
     bool                dist;
     Matrix<double,5,1>  d;
@@ -49,6 +50,10 @@ private:
     Mat                 undistmap1l, undistmap2l, undistmap1r, undistmap2r;
 
 public:
+
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
+    PinholeStereoCamera(const std::string &params_file);
 
     PinholeStereoCamera( int width_, int height_, double fx_, double fy_, double cx_, double cy_, double b_,
                          double d0 = 0.0, double d1 = 0.0, double d2 = 0.0, double d3 = 0.0, double d4 = 0.0);
@@ -61,13 +66,13 @@ public:
     ~PinholeStereoCamera();
 
     // Image rectification
-    void rectifyImage( const Mat& img_src, Mat& img_rec);
-    void rectifyImagesLR( const Mat& img_src_l, Mat& img_rec_l, const Mat& img_src_r, Mat& img_rec_r );
+    void rectifyImage( const Mat& img_src, Mat& img_rec) const;
+    void rectifyImagesLR( const Mat& img_src_l, Mat& img_rec_l, const Mat& img_src_r, Mat& img_rec_r ) const;
 
     // Proyection and Back-projection
     Vector3d backProjection_unit(const double &u, const double &v, const double &disp, double &depth);
     Vector3d backProjection(const double &u, const double &v, const double &disp);
-    Vector2d projection(Vector3d P);
+    Vector2d projection(const Vector3d &P);
     Vector3d projectionNH(Vector3d P);
     Vector2d nonHomogeneous( Vector3d x);
 

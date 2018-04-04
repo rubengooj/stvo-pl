@@ -1,22 +1,23 @@
 /*****************************************************************************
-**   Stereo Visual Odometry by combining point and line segment features	**
+**      Stereo VO and SLAM by combining point and line segment features     **
 ******************************************************************************
-**																			**
-**	Copyright(c) 2016, Ruben Gomez-Ojeda, University of Malaga              **
-**	Copyright(c) 2016, MAPIR group, University of Malaga					**
-**																			**
-**  This program is free software: you can redistribute it and/or modify	**
-**  it under the terms of the GNU General Public License (version 3) as		**
-**	published by the Free Software Foundation.								**
-**																			**
-**  This program is distributed in the hope that it will be useful, but		**
-**	WITHOUT ANY WARRANTY; without even the implied warranty of				**
-**  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the			**
-**  GNU General Public License for more details.							**
-**																			**
-**  You should have received a copy of the GNU General Public License		**
-**  along with this program.  If not, see <http://www.gnu.org/licenses/>.	**
-**																			**
+**                                                                          **
+**  Copyright(c) 2016-2018, Ruben Gomez-Ojeda, University of Malaga         **
+**  Copyright(c) 2016-2018, David Zuñiga-Noël, University of Malaga         **
+**  Copyright(c) 2016-2018, MAPIR group, University of Malaga               **
+**                                                                          **
+**  This program is free software: you can redistribute it and/or modify    **
+**  it under the terms of the GNU General Public License (version 3) as     **
+**  published by the Free Software Foundation.                              **
+**                                                                          **
+**  This program is distributed in the hope that it will be useful, but     **
+**  WITHOUT ANY WARRANTY; without even the implied warranty of              **
+**  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the            **
+**  GNU General Public License for more details.                            **
+**                                                                          **
+**  You should have received a copy of the GNU General Public License       **
+**  along with this program.  If not, see <http://www.gnu.org/licenses/>.   **
+**                                                                          **
 *****************************************************************************/
 
 #pragma once
@@ -72,10 +73,15 @@ double angDiff_d(double alpha, double beta);
 // Auxiliar functions and structs for vectors
 double vector_stdv_mad( VectorXf residues);
 double vector_stdv_mad( vector<double> residues);
+double vector_stdv_mad( vector<double> residues, double &median);
+double vector_mean_mad(vector<double> v, double stdv, double K);
 double vector_stdv_mad_nozero( vector<double> residues);
 double vector_mean(vector<double> v);
 double vector_stdv(vector<double> v);
 double vector_stdv(vector<double> v, double v_mean);
+void vector_mean_stdv_mad( vector<double> residues, double &mean, double &stdv );
+
+double robustWeightCauchy(double norm_res);
 
 struct compare_descriptor_by_NN_dist
 {
@@ -140,3 +146,9 @@ struct sort_lines_by_length
     }
 };
 
+struct sort_flines_by_length
+{
+    inline bool operator()(const Vec4f& a, const Vec4f& b){
+        return ( sqrt(pow(a(0)-a(2),2.0)+pow(a(1)-a(3),2.0)) > sqrt(pow(b(0)-b(2),2.0)+pow(b(1)-b(3),2.0)) );
+    }
+};

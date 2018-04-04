@@ -1,22 +1,23 @@
 /*****************************************************************************
-**   Stereo Visual Odometry by combining point and line segment features	**
+**      Stereo VO and SLAM by combining point and line segment features     **
 ******************************************************************************
-**																			**
-**	Copyright(c) 2016, Ruben Gomez-Ojeda, University of Malaga              **
-**	Copyright(c) 2016, MAPIR group, University of Malaga					**
-**																			**
-**  This program is free software: you can redistribute it and/or modify	**
-**  it under the terms of the GNU General Public License (version 3) as		**
-**	published by the Free Software Foundation.								**
-**																			**
-**  This program is distributed in the hope that it will be useful, but		**
-**	WITHOUT ANY WARRANTY; without even the implied warranty of				**
-**  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the			**
-**  GNU General Public License for more details.							**
-**																			**
-**  You should have received a copy of the GNU General Public License		**
-**  along with this program.  If not, see <http://www.gnu.org/licenses/>.	**
-**																			**
+**                                                                          **
+**  Copyright(c) 2016-2018, Ruben Gomez-Ojeda, University of Malaga         **
+**  Copyright(c) 2016-2018, David Zuñiga-Noël, University of Malaga         **
+**  Copyright(c) 2016-2018, MAPIR group, University of Malaga               **
+**                                                                          **
+**  This program is free software: you can redistribute it and/or modify    **
+**  it under the terms of the GNU General Public License (version 3) as     **
+**  published by the Free Software Foundation.                              **
+**                                                                          **
+**  This program is distributed in the hope that it will be useful, but     **
+**  WITHOUT ANY WARRANTY; without even the implied warranty of              **
+**  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the            **
+**  GNU General Public License for more details.                            **
+**                                                                          **
+**  You should have received a copy of the GNU General Public License       **
+**  along with this program.  If not, see <http://www.gnu.org/licenses/>.   **
+**                                                                          **
 *****************************************************************************/
 
 #include <auxiliar.h>
@@ -383,6 +384,51 @@ double angDiff_d(double alpha, double beta){
 
 /* Auxiliar functions and structs for vectors */
 
+void vector_mean_stdv_mad( vector<double> residues, double &mean, double &stdv )
+{
+
+    mean = 0.f;
+    stdv = 0.f;
+
+    if( residues.size() != 0 )
+    {
+        // Return the standard deviation of vector with MAD estimation
+        int n_samples = residues.size();
+        vector<double> residues_ = residues;
+        sort( residues.begin(),residues.end() );
+        double median = residues[ n_samples/2 ];
+        for( int i = 0; i < n_samples; i++)
+            residues[i] = fabsf( residues[i] - median );
+        sort( residues.begin(),residues.end() );
+        stdv = 1.4826 * residues[ n_samples/2 ];
+
+        // return the mean with only the best samples
+        int k = 0;
+        for( int i = 0; i < n_samples; i++)
+            if( residues_[i] < 2.0 * stdv )
+            {
+                mean += residues_[i];
+                k++;
+            }
+
+
+        if( k >= int( 0.2 * residues.size()) )
+            mean /= double(k);
+        else
+        {
+            k = 0;
+            mean = 0.f;
+            for( int i = 0; i < n_samples; i++)
+            {
+                mean += residues_[i];
+                k++;
+            }
+            mean /= double(k);
+        }
+    }
+
+}
+
 double vector_stdv_mad( VectorXf residues)
 {
     // Return the standard deviation of vector with MAD estimation
@@ -411,6 +457,40 @@ double vector_stdv_mad( vector<double> residues)
     }
     else
         return 0.0;
+}
+
+double vector_stdv_mad( vector<double> residues, double &median)
+{
+    if( residues.size() != 0 )
+    {
+        // Return the standard deviation of vector with MAD estimation
+        int n_samples = residues.size();
+        sort( residues.begin(),residues.end() );
+        median = residues[ n_samples/2 ];
+        for( int i = 0; i < n_samples; i++)
+            residues[i] = fabsf( residues[i] - median );
+        sort( residues.begin(),residues.end() );
+        double MAD = residues[ n_samples/2 ];
+        return 1.4826 * MAD;
+    }
+    else
+        return 0.0;
+}
+
+double vector_mean_mad(vector<double> v, double stdv, double K)
+{
+    double sum = 0.0;
+    int k = 0;
+    for( int i = 0; i < v.size(); i++ )
+        if( v[i] < K * stdv )
+        {
+            sum += v[i];
+            k++;
+        }
+    if( k > 0 )
+        return sum / k;
+    else
+        return sum;
 }
 
 double vector_mean(vector<double> v)
@@ -470,3 +550,64 @@ double vector_stdv_mad_nozero( vector<double> residues)
     else
         return 0.0;
 }
+
+/* Robust weight functions */
+
+double robustWeightCauchy( double norm_res )
+{
+    // Cauchy
+    return 1.0 / ( 1.0 + norm_res * norm_res );
+
+    // Smooth Truncated Parabola
+    /*if( norm_res <= 1.0 )
+        return 1.0 - norm_res * norm_res;
+    else
+        return 0.0;*/
+
+    // Tukey's biweight
+    /*if( norm_res <= 1.0 )
+        return pow( 1.0 - norm_res*norm_res ,2.0);
+    else
+        return 0.0;*/
+
+    // Huber loss function
+    /*if( norm_res <= 1.0 )
+        return 1.0;
+    else
+        return 1.0 / norm_res;*/
+
+    // Welsch
+    //return exp( - norm_res*norm_res );
+
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

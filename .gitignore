@@ -14,5 +14,5 @@ CMakeLists.txt.user
 /app/other/outliersSVO.cpp
 /app/other/simulatedSVO.cpp
 /lib/libstvo.so
-*/lib/liblinedesc.so
+*lib*
 *future-todo*
