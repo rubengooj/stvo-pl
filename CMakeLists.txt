@@ -12,9 +12,10 @@ include_directories(${OpenCV2_INCLUDE_DIRS})
 
 set(DEFAULT_HAS_MRPT ON)
 set(HAS_MRPT ${DEFAULT_HAS_MRPT} CACHE BOOL "Build the PointGrey Bumblebee2 SVO application that employs the MRPT library")
+message("--> HAS_MRPT = ${HAS_MRPT}")
 
 SET(BUILD_SHARED_LIBS ON)
-SET(CMAKE_MODULE_PATH $ENV{CMAKE_MODULE_PATH})
+list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake_modules")
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -O3 -mtune=native -march=native")
 
 add_definitions(-DBOOST_NO_CXX11_SCOPED_ENUMS)
@@ -22,6 +23,7 @@ add_definitions(-DBOOST_NO_CXX11_SCOPED_ENUMS)
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/build)
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
+find_package(Eigen3   REQUIRED)
 # MRPT library (optional, only with representation purposes)
 if(HAS_MRPT)
 find_package(MRPT REQUIRED base opengl gui hwdrivers)
@@ -35,7 +37,7 @@ FIND_PACKAGE(yaml-cpp REQUIRED CONFIG PATHS ${YAML_PATHS})
 # Include dirs
 include_directories(
   include
-  ${Eigen3_INCLUDE_DIRS}
+  ${EIGEN3_INCLUDE_DIR}
   ${OpenCV_INCLUDE_DIRS}
   ${Boost_INCLUDE_DIRS}
   ${YAML_CPP_INCLUDE_DIR}
