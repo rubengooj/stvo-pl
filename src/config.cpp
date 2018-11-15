@@ -87,29 +87,29 @@ Config::Config()
 
     // Feature detection parameters
     // -----------------------------------------------------------------------------------------------------
-    matching_strategy = 3;
-    matching_s_ws     = 10;
-    matching_f2f_ws   = 3;
+    matching_strategy = 0;          // 0 - pure descriptor based  |  1 - window based plus descriptor
+    matching_s_ws     = 10;         // size of the windows (in pixels) to look for stereo matches (if matching_stereo=1)
+    matching_f2f_ws   = 3;          // size of the windows (in pixels) to look for f2f matches
 
     // ORB detector
-    orb_nfeatures    = 1200;
-    orb_scale_factor = 1.2;
-    orb_nlevels      = 4;
-    orb_edge_th      = 19;
-    orb_wta_k        = 2;            // was set to 4
-    orb_score        = 1;            // 0 - HARRIS  |  1 - FAST
-    orb_patch_size   = 31;
-    orb_fast_th      = 20;           // default FAST threshold
+    orb_nfeatures     = 1200;       // number of ORB features to detect
+    orb_scale_factor  = 1.2;        // pyramid decimation ratio for the ORB detector
+    orb_nlevels       = 4;          // number of pyramid levels
+    orb_edge_th       = 19;         // size of the border where the features are not detected
+    orb_wta_k         = 2;          //  number of points that produce each element of the oriented BRIEF descriptor
+    orb_score         = 1;          // 0 - HARRIS  |  1 - FAST
+    orb_patch_size    = 31;         // size of the patch used by the oriented BRIEF descriptor.
+    orb_fast_th       = 20;         // default FAST threshold
     // LSD parameters
-    lsd_nfeatures    = 300;          // set to 0 if keeping all lines
-    lsd_refine       = 0;
-    lsd_scale        = 1.2;
-    lsd_sigma_scale  = 0.6;
-    lsd_quant        = 2.0;
-    lsd_ang_th       = 22.5;
-    lsd_log_eps      = 1.0;
-    lsd_density_th   = 0.6;
-    lsd_n_bins       = 1024;
+    lsd_nfeatures     = 300;        // number of LSD lines detected (set to 0 if keeping all lines)
+    lsd_refine        = 0;          // the way of refining or not the detected lines
+    lsd_scale         = 1.2;        // scale of the image that will be used to find the lines
+    lsd_sigma_scale   = 0.6;        // sigma for Gaussian filter
+    lsd_quant         = 2.0;        // bound to the quantization error on the gradient norm
+    lsd_ang_th        = 22.5;       // gradient angle tolerance in degrees
+    lsd_log_eps       = 1.0;        // detection threshold (only for advanced refinement)
+    lsd_density_th    = 0.6;        // minimal density of aligned region points in the enclosing rectangle
+    lsd_n_bins        = 1024;       // number of bins in pseudo-ordering of gradient modulus
 }
 
 Config::~Config(){}
