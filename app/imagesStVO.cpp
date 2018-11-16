@@ -50,7 +50,8 @@ int main(int argc, char **argv)
     if (!config_file.empty()) Config::loadFromFile(config_file);
 
     // read dataset root dir fron environment variable
-    boost::filesystem::path dataset_path(string( getenv("DATASETS_DIR")));
+    // boost::filesystem::path dataset_path(string( getenv("DATASETS_DIR")));
+    boost::filesystem::path dataset_path("/");
     if (!boost::filesystem::exists(dataset_path) || !boost::filesystem::is_directory(dataset_path)) {
         cout << "Check your DATASETS_DIR environment variable" << endl;
         return -1;

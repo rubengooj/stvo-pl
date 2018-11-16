@@ -50,6 +50,7 @@ list(APPEND LINK_LIBS
   ${Boost_LIBRARIES}
   ${YAML_CPP_LIBRARIES}
   ${PROJECT_SOURCE_DIR}/3rdparty/line_descriptor/lib/liblinedesc.so
+  /opt/ros/kinetic/lib/x86_64-linux-gnu/libopencv_imgcodecs3.so
 )
 
 # Set source files 
