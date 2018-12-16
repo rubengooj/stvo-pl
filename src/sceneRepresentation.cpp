@@ -301,7 +301,7 @@ bool sceneRepresentation::updateScene(){
         float b_ = v_auxgt(4);
         float c_ = v_auxgt(5);
         v_auxgt(1) =  z_;
-        v_auxgt(2) = -y_;        
+        v_auxgt(2) = -y_;
         v_auxgt(4) = -c_;
         v_auxgt(5) =  b_;
         pose_gt = CPose3D(TPose3D(v_auxgt(0),v_auxgt(1),v_auxgt(2),v_auxgt(3),v_auxgt(4),v_auxgt(5)));
@@ -376,7 +376,7 @@ bool sceneRepresentation::updateScene(){
     win->repaint();
 
     // Key events   -       TODO: change the trick to employ viewports
-    if(win->keyHit()){       
+    if(win->keyHit()){
         key = win->getPushedKey(&kmods);
         if(key == MRPTK_SPACE){                     // Space    Reset VO
             theScene->clear();
@@ -547,7 +547,7 @@ bool sceneRepresentation::updateScene(list<PointFeature*> matched_pt, list<LineF
         v_auxgt(2) = -y_;
         v_auxgt(4) = -c_;
         v_auxgt(5) =  b_;
-        pose_gt = TPose3D(v_auxgt(0),v_auxgt(1),v_auxgt(2),v_auxgt(3),v_auxgt(4),v_auxgt(5));
+        pose_gt = CPose3D(v_auxgt(0),v_auxgt(1),v_auxgt(2),v_auxgt(3),v_auxgt(4),v_auxgt(5));
 
         if(hasTraj){
             opengl::CSimpleLinePtr obj = opengl::CSimpleLine::Create();
@@ -790,7 +790,7 @@ void sceneRepresentation::plotPointsCovariances(){
         covP_an(2,1) = covP_an(1,2);
         covP_an << covP_an * bsigmaP / (disp2*disp2);
         // Insertion of the ellipsoids
-        CEllipsoidPtr elliAux_ = opengl::CEllipsoid::Create();        
+        CEllipsoidPtr elliAux_ = opengl::CEllipsoid::Create();
         elliAux_->setQuantiles(1.0);
         elliAux_->enableDrawSolid3D(true);
         elliAux_->setCovMatrix(getCovFormat(covP_an));
