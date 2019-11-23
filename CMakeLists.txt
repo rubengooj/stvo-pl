@@ -10,6 +10,9 @@ endif(COMMAND cmake_policy)
 link_directories(${OpenCV_LIBS_DIR})
 include_directories(${OpenCV2_INCLUDE_DIRS})
 
+# Include line_descriptor as project:
+add_subdirectory(3rdparty/line_descriptor)
+
 set(DEFAULT_HAS_MRPT ON)
 set(HAS_MRPT ${DEFAULT_HAS_MRPT} CACHE BOOL "Build the PointGrey Bumblebee2 SVO application that employs the MRPT library")
 
@@ -24,10 +27,10 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
 # MRPT library (optional, only with representation purposes)
 if(HAS_MRPT)
-find_package(MRPT REQUIRED base opengl gui hwdrivers)
+find_package(MRPT REQUIRED opengl gui hwdrivers)
 set(MRPT_DONT_USE_DBG_LIBS 1) #use release libraries for linking even if "Debug" CMake build
 add_definitions(-DHAS_MRPT)
-endif(HAS_MRPT)
+endif()
 
 # YAML library
 FIND_PACKAGE(yaml-cpp REQUIRED CONFIG PATHS ${YAML_PATHS})
@@ -47,7 +50,7 @@ list(APPEND LINK_LIBS
   ${OpenCV_LIBS}
   ${Boost_LIBRARIES}
   ${YAML_CPP_LIBRARIES}
-  ${PROJECT_SOURCE_DIR}/3rdparty/line_descriptor/lib/liblinedesc.so
+  linedesc
 )
 
 # Set source files 
@@ -80,10 +83,10 @@ add_custom_target( stvo_includes DEPENDS ${all_include_files} SOURCES ${all_incl
 # Create StVO-PL library
 add_library(stvo SHARED ${SOURCEFILES})
 
-if(HAS_MRPT)
-target_link_libraries(stvo ${LINK_LIBS} ${MRPT_LIBS})
-else()
 target_link_libraries(stvo ${LINK_LIBS})
+
+if(HAS_MRPT)
+target_link_libraries(stvo ${MRPT_LIBS} ${MRPT_LIBRARIES})
 endif()
 
 # Applications
