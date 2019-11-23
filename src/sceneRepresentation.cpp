@@ -137,9 +137,9 @@ void sceneRepresentation::initializeScene(Matrix4d x_0, bool has_gt){
     pose_0  = x_aux;
     pose_gt = pose_ini - change;
     x_ini   = x_0;
-    pose.getAsVector(v_aux);
-    pose1.getAsVector(v_aux1);
-    pose_gt.getAsVector(v_auxgt);
+    pose.asVector(v_aux);
+    pose1.asVector(v_aux1);
+    pose_gt.asVector(v_auxgt);
 
     // Initialize the camera object
     bbObj = opengl::stock_objects::BumblebeeCamera();
@@ -216,7 +216,7 @@ void sceneRepresentation::initializeScene(Matrix4d x_0, bool has_gt){
     // Initialize the text
     if(hasText){
         string text = "Frame: \t \t0 \nFrequency: \t0 Hz \nLines:  \t0 (0)\nPoints: \t0 (0)";
-        win->addTextMessage(0.85,0.95, text, TColorf(.0,.0,.0), 0, mrpt::opengl::MRPT_GLUT_BITMAP_HELVETICA_10 );
+        win->addTextMessage(0.85,0.95, text, mrpt::img::TColorf(.0,.0,.0), 0, mrpt::opengl::MRPT_GLUT_BITMAP_HELVETICA_10 );
     }
 
     // Initialize the covariance ellipse
@@ -269,10 +269,10 @@ bool sceneRepresentation::updateScene(){
     CPose3D x_aux(getPoseFormat(x));
     pose = pose + x_aux;
     v_aux_ = v_aux;
-    pose.getAsVector(v_aux);
+    pose.asVector(v_aux);
     if(hasTraj){
-        opengl::CSimpleLinePtr obj = opengl::CSimpleLine::Create();
-        obj->setLineCoords(v_aux_(0),v_aux_(1),v_aux_(2), v_aux(0),v_aux(1),v_aux(2));
+        opengl::CSimpleLine::Ptr obj = opengl::CSimpleLine::Create();
+        obj->setLineCoords(v_aux_[0],v_aux_[1],v_aux_[2], v_aux[0],v_aux[1],v_aux[2]);
         obj->setLineWidth(sline);
         obj->setColor(0,0,0.7);
         theScene->insert( obj );
@@ -286,7 +286,7 @@ bool sceneRepresentation::updateScene(){
 
     // Set camera pointing to the current trajectory
     if(hasCamFix)
-        win->setCameraPointingToPoint(v_aux(0),v_aux(1),v_aux(2));
+        win->setCameraPointingToPoint(v_aux[0],v_aux[1],v_aux[2]);
 
     // Update the GT camera pose
     if(hasGT){
@@ -295,21 +295,21 @@ bool sceneRepresentation::updateScene(){
         pose_gt = x_auxgt;
         v_auxgt_ = v_auxgt;
 
-        pose_gt.getAsVector(v_auxgt);
-        float y_ = v_auxgt(1);
-        float z_ = v_auxgt(2);
-        float b_ = v_auxgt(4);
-        float c_ = v_auxgt(5);
-        v_auxgt(1) =  z_;
-        v_auxgt(2) = -y_;
-        v_auxgt(4) = -c_;
-        v_auxgt(5) =  b_;
-        pose_gt = CPose3D(TPose3D(v_auxgt(0),v_auxgt(1),v_auxgt(2),v_auxgt(3),v_auxgt(4),v_auxgt(5)));
+        pose_gt.asVector(v_auxgt);
+        float y_ = v_auxgt[1];
+        float z_ = v_auxgt[2];
+        float b_ = v_auxgt[4];
+        float c_ = v_auxgt[5];
+        v_auxgt[1] =  z_;
+        v_auxgt[2] = -y_;
+        v_auxgt[4] = -c_;
+        v_auxgt[5] =  b_;
+        pose_gt = CPose3D(TPose3D(v_auxgt[0],v_auxgt[1],v_auxgt[2],v_auxgt[3],v_auxgt[4],v_auxgt[5]));
 
 
         if(hasTraj){
-            opengl::CSimpleLinePtr obj = opengl::CSimpleLine::Create();
-            obj->setLineCoords(v_auxgt_(0),v_auxgt_(1),v_auxgt_(2), v_auxgt(0),v_auxgt(1),v_auxgt(2));
+            opengl::CSimpleLine::Ptr obj = opengl::CSimpleLine::Create();
+            obj->setLineCoords(v_auxgt_[0],v_auxgt_[1],v_auxgt_[2], v_auxgt[0],v_auxgt[1],v_auxgt[2]);
             obj->setLineWidth(sline);
             obj->setColor(0,0,0);
             theScene->insert( obj );
@@ -323,10 +323,10 @@ bool sceneRepresentation::updateScene(){
         CPose3D x_aux1(getPoseFormat(xcomp));
         pose1 = pose1 + x_aux1;
         v_aux1_ = v_aux1;
-        pose1.getAsVector(v_aux1);
+        pose1.asVector(v_aux1);
         if(hasTraj){
-            opengl::CSimpleLinePtr obj = opengl::CSimpleLine::Create();
-            obj->setLineCoords(v_aux1_(0),v_aux1_(1),v_aux1_(2), v_aux1(0),v_aux1(1),v_aux1(2));
+            opengl::CSimpleLine::Ptr obj = opengl::CSimpleLine::Create();
+            obj->setLineCoords(v_aux1_[0],v_aux1_[1],v_aux1_[2], v_aux1[0],v_aux1[1],v_aux1[2]);
             obj->setLineWidth(sline);
             obj->setColor(0,0.7,0);
             theScene->insert( obj );
@@ -338,7 +338,7 @@ bool sceneRepresentation::updateScene(){
     // Update the text
     if(hasText){
         string text = "Frame: \t \t" + to_string(frame) + " \n" + "Frequency: \t" + to_string_with_precision(1000.f/time,4) + " Hz \n" + "Lines:  \t" + to_string(nLines) + " (" + to_string(nLinesH) + ") \nPoints: \t" + to_string(nPoints) + " (" + to_string(nPointsH) + ")";
-        win->addTextMessage(0.85,0.95, text, TColorf(.0,.0,.0), 0, mrpt::opengl::MRPT_GLUT_BITMAP_HELVETICA_10 );
+        win->addTextMessage(0.85,0.95, text, mrpt::img::TColorf(.0,.0,.0), 0, mrpt::opengl::MRPT_GLUT_BITMAP_HELVETICA_10 );
     }
 
     // Update the covariance
@@ -357,7 +357,7 @@ bool sceneRepresentation::updateScene(){
     lineObj->clear();
     if(hasLines){
         //plotLinesCovariances();
-        for(int i = 0; i < size(lData,2); i++)
+        for(int i = 0; i < lData.cols(); i++)
             lineObj->appendLine(lData(0,i),lData(1,i),lData(2,i), lData(3,i),lData(4,i),lData(5,i));
         lineObj->setPose(pose);
     }
@@ -366,7 +366,7 @@ bool sceneRepresentation::updateScene(){
     pointObj->clear();
     if(hasPoints){
         //plotPointsCovariances();
-        for(int i = 0; i < size(pData,2); i++)
+        for(int i = 0; i < pData.cols(); i++)
             pointObj->insertPoint(pData(0,i),pData(1,i),pData(2,i));
         pointObj->setPose(pose);
     }
@@ -404,7 +404,7 @@ bool sceneRepresentation::updateScene(){
         else if ( (key ==  97) || (key == 65) ){    // A        axes
             hasAxes   = !hasAxes;
             if(!hasAxes){
-                axesObj.clear();
+                axesObj.reset();
             }
             else{
                 axesObj = opengl::CAxis::Create();
@@ -417,8 +417,8 @@ bool sceneRepresentation::updateScene(){
         else if ( (key == 102) || (key == 70) ){    // F        frustum
             hasFrustum   = !hasFrustum;
             if(!hasFrustum){
-                frustObj.clear();
-                frustObj1.clear();
+                frustObj.reset();
+                frustObj1.reset();
             }
             else{
                 frustObj = opengl::CFrustum::Create();
@@ -436,7 +436,7 @@ bool sceneRepresentation::updateScene(){
         else if ( (key == 112) || (key == 80) ){    // P        points
             hasPoints = !hasPoints;
             if(!hasPoints){
-                elliObjP.clear();
+                elliObjP.reset();
             }
             else{
                 elliObjP = opengl::CSetOfObjects::Create();
@@ -448,7 +448,7 @@ bool sceneRepresentation::updateScene(){
         else if ( (key == 108) || (key == 76) ){    // L        lines
             hasLines  = !hasLines;
             if(!hasLines){
-                elliObjL.clear();
+                elliObjL.reset();
             }
             else{
                 elliObjL = opengl::CSetOfObjects::Create();
@@ -461,13 +461,13 @@ bool sceneRepresentation::updateScene(){
             hasText  = !hasText;
             if(!hasText){
                 string text = "";
-                win->addTextMessage(0.85,0.95, text, TColorf(1.0,1.0,1.0), 0, mrpt::opengl::MRPT_GLUT_BITMAP_HELVETICA_10 );
+                win->addTextMessage(0.85,0.95, text, mrpt::img::TColorf(1.0,1.0,1.0), 0, mrpt::opengl::MRPT_GLUT_BITMAP_HELVETICA_10 );
             }
         }
         else if ( (key ==  99) || (key == 67) ){    // C        covariance
             hasCov   = !hasCov;
             if(!hasCov){
-                elliObj.clear();
+                elliObj.reset();
             }
             else{
                 elliObj = opengl::CEllipsoid::Create();
@@ -512,10 +512,10 @@ bool sceneRepresentation::updateScene(list<PointFeature*> matched_pt, list<LineF
     CPose3D x_aux(getPoseFormat(x));
     pose = pose + x_aux;
     v_aux_ = v_aux;
-    pose.getAsVector(v_aux);
+    pose.asVector(v_aux);
     if(hasTraj){
-        opengl::CSimpleLinePtr obj = opengl::CSimpleLine::Create();
-        obj->setLineCoords(v_aux_(0),v_aux_(1),v_aux_(2), v_aux(0),v_aux(1),v_aux(2));
+        auto obj = opengl::CSimpleLine::Create();
+        obj->setLineCoords(v_aux_[0],v_aux_[1],v_aux_[2], v_aux[0],v_aux[1],v_aux[2]);
         obj->setLineWidth(sline);
         obj->setColor(0,0,0.7);
         theScene->insert( obj );
@@ -529,7 +529,7 @@ bool sceneRepresentation::updateScene(list<PointFeature*> matched_pt, list<LineF
 
     // Set camera pointing to the current trajectory
     if(hasCamFix)
-        win->setCameraPointingToPoint(v_aux(0),v_aux(1),v_aux(2));
+        win->setCameraPointingToPoint(v_aux[0],v_aux[1],v_aux[2]);
 
     // Update the GT camera pose
     if(hasGT){
@@ -538,11 +538,11 @@ bool sceneRepresentation::updateScene(list<PointFeature*> matched_pt, list<LineF
         pose_gt = x_auxgt;
         v_auxgt_ = v_auxgt;
 
-        pose_gt.getAsVector(v_auxgt);
-        float y_ = v_auxgt(1);
-        float z_ = v_auxgt(2);
-        float b_ = v_auxgt(4);
-        float c_ = v_auxgt(5);
+        pose_gt.asVector(v_auxgt);
+        float y_ = v_auxgt[1];
+        float z_ = v_auxgt[2];
+        float b_ = v_auxgt[4];
+        float c_ = v_auxgt[5];
         v_auxgt(1) =  z_;
         v_auxgt(2) = -y_;
         v_auxgt(4) = -c_;
@@ -550,8 +550,8 @@ bool sceneRepresentation::updateScene(list<PointFeature*> matched_pt, list<LineF
         pose_gt = CPose3D(v_auxgt(0),v_auxgt(1),v_auxgt(2),v_auxgt(3),v_auxgt(4),v_auxgt(5));
 
         if(hasTraj){
-            opengl::CSimpleLinePtr obj = opengl::CSimpleLine::Create();
-            obj->setLineCoords(v_auxgt_(0),v_auxgt_(1),v_auxgt_(2), v_auxgt(0),v_auxgt(1),v_auxgt(2));
+            opengl::CSimpleLine::Ptr obj = opengl::CSimpleLine::Create();
+            obj->setLineCoords(v_auxgt_[0],v_auxgt_[1],v_auxgt_[2], v_auxgt[0],v_auxgt[1],v_auxgt[2]);
             obj->setLineWidth(sline);
             obj->setColor(0,0,0);
             theScene->insert( obj );
@@ -565,10 +565,10 @@ bool sceneRepresentation::updateScene(list<PointFeature*> matched_pt, list<LineF
         CPose3D x_aux1(getPoseFormat(xcomp));
         pose1 = pose1 + x_aux1;
         v_aux1_ = v_aux1;
-        pose1.getAsVector(v_aux1);
+        pose1.asVector(v_aux1);
         if(hasTraj){
-            opengl::CSimpleLinePtr obj = opengl::CSimpleLine::Create();
-            obj->setLineCoords(v_aux1_(0),v_aux1_(1),v_aux1_(2), v_aux1(0),v_aux1(1),v_aux1(2));
+            opengl::CSimpleLine::Ptr obj = opengl::CSimpleLine::Create();
+            obj->setLineCoords(v_aux1_[0],v_aux1_[1],v_aux1_[2], v_aux1[0],v_aux1[1],v_aux1[2]);
             obj->setLineWidth(sline);
             obj->setColor(0,0.7,0);
             theScene->insert( obj );
@@ -580,7 +580,7 @@ bool sceneRepresentation::updateScene(list<PointFeature*> matched_pt, list<LineF
     // Update the text
     if(hasText){
         string text = "Frame: \t \t" + to_string(frame) + " \n" + "Frequency: \t" + to_string_with_precision(1000.f/time,4) + " Hz \n" + "Lines:  \t" + to_string(nLines) + " (" + to_string(nLinesH) + ") \nPoints: \t" + to_string(nPoints) + " (" + to_string(nPointsH) + ")";
-        win->addTextMessage(0.85,0.95, text, TColorf(.0,.0,.0), 0, mrpt::opengl::MRPT_GLUT_BITMAP_HELVETICA_10 );
+        win->addTextMessage(0.85,0.95, text, mrpt::img::TColorf(.0,.0,.0), 0, mrpt::opengl::MRPT_GLUT_BITMAP_HELVETICA_10 );
     }
 
     // Update the covariance
@@ -596,8 +596,7 @@ bool sceneRepresentation::updateScene(list<PointFeature*> matched_pt, list<LineF
         if (static_cast<size_t>(width) != img_mrpt_image.getWidth() ||
                 static_cast<size_t>(height) != img_mrpt_image.getHeight())
             image->setViewportPosition(20, 20, img_mrpt_image.getWidth(), img_mrpt_image.getHeight());
-        image->setImageView_fast( img_mrpt_image );
-        //image->setImageView( img_mrpt_image );
+        image->setImageView( std::move(img_mrpt_image) );
     }
 
     // Update the lines
@@ -666,7 +665,7 @@ bool sceneRepresentation::updateScene(list<PointFeature*> matched_pt, list<LineF
         else if ( (key ==  97) || (key == 65) ){    // A        axes
             hasAxes   = !hasAxes;
             if(!hasAxes){
-                axesObj.clear();
+                axesObj.reset();
             }
             else{
                 axesObj = opengl::CAxis::Create();
@@ -679,8 +678,8 @@ bool sceneRepresentation::updateScene(list<PointFeature*> matched_pt, list<LineF
         else if ( (key == 102) || (key == 70) ){    // F        frustum
             hasFrustum   = !hasFrustum;
             if(!hasFrustum){
-                frustObj.clear();
-                frustObj1.clear();
+                frustObj.reset();
+                frustObj1.reset();
             }
             else{
                 frustObj = opengl::CFrustum::Create();
@@ -698,7 +697,7 @@ bool sceneRepresentation::updateScene(list<PointFeature*> matched_pt, list<LineF
         else if ( (key == 112) || (key == 80) ){    // P        points
             hasPoints = !hasPoints;
             if(!hasPoints){
-                elliObjP.clear();
+                elliObjP.reset();
             }
             else{
                 elliObjP = opengl::CSetOfObjects::Create();
@@ -710,7 +709,7 @@ bool sceneRepresentation::updateScene(list<PointFeature*> matched_pt, list<LineF
         else if ( (key == 108) || (key == 76) ){    // L        lines
             hasLines  = !hasLines;
             if(!hasLines){
-                elliObjL.clear();
+                elliObjL.reset();
             }
             else{
                 elliObjL = opengl::CSetOfObjects::Create();
@@ -723,13 +722,13 @@ bool sceneRepresentation::updateScene(list<PointFeature*> matched_pt, list<LineF
             hasText  = !hasText;
             if(!hasText){
                 string text = "";
-                win->addTextMessage(0.85,0.95, text, TColorf(1.0,1.0,1.0), 0, mrpt::opengl::MRPT_GLUT_BITMAP_HELVETICA_10 );
+                win->addTextMessage(0.85,0.95, text, mrpt::img::TColorf(1.0,1.0,1.0), 0, mrpt::opengl::MRPT_GLUT_BITMAP_HELVETICA_10 );
             }
         }
         else if ( (key ==  99) || (key == 67) ){    // C        covariance
             hasCov   = !hasCov;
             if(!hasCov){
-                elliObj.clear();
+                elliObj.reset();
             }
             else{
                 elliObj = opengl::CEllipsoid::Create();
@@ -767,7 +766,7 @@ bool sceneRepresentation::updateScene(list<PointFeature*> matched_pt, list<LineF
 
 void sceneRepresentation::plotPointsCovariances(){
 
-    unsigned int nP = size(pData,2);
+    unsigned int nP = pData.cols();
     Matrix3d covAux;
 
     // Keypoints covariance ellipsoids
@@ -790,7 +789,7 @@ void sceneRepresentation::plotPointsCovariances(){
         covP_an(2,1) = covP_an(1,2);
         covP_an << covP_an * bsigmaP / (disp2*disp2);
         // Insertion of the ellipsoids
-        CEllipsoidPtr elliAux_ = opengl::CEllipsoid::Create();
+        CEllipsoid::Ptr elliAux_ = opengl::CEllipsoid::Create();
         elliAux_->setQuantiles(1.0);
         elliAux_->enableDrawSolid3D(true);
         elliAux_->setCovMatrix(getCovFormat(covP_an));
@@ -805,7 +804,7 @@ void sceneRepresentation::plotPointsCovariances(){
 
 void sceneRepresentation::plotLinesCovariances(){
 
-    unsigned int nL = size(lData,2);
+    unsigned int nL = lData.cols();
     Matrix3d covAux;
 
     // Line-segments covariance ellipsoids
@@ -830,7 +829,7 @@ void sceneRepresentation::plotLinesCovariances(){
         covP_an(2,1) = covP_an(1,2);
         covP_an << covP_an * bsigmaL / (disp2*disp2);
         // Insertion of the ellipsoids
-        CEllipsoidPtr elliAux_ = opengl::CEllipsoid::Create();
+        CEllipsoid::Ptr elliAux_ = opengl::CEllipsoid::Create();
         elliAux_->setQuantiles(1.0);
         elliAux_->enableDrawSolid3D(true);
         elliAux_->setColor(0,0.3,0);
@@ -936,7 +935,7 @@ void sceneRepresentation::setLegend(){
         if(hasComparison){
             img_legend = "../config/aux/legend_comp.png";
             img_mrpt_legend.loadFromFile(img_legend,1);
-            legend->setImageView_fast( img_mrpt_legend );
+            legend->setImageView( std::move(img_mrpt_legend) );
         }
         else
             img_mrpt_legend.loadFromFile("",1);
@@ -944,12 +943,12 @@ void sceneRepresentation::setLegend(){
     else if(hasComparison){
         img_legend = "../config/aux/legend_full.png";
         img_mrpt_legend.loadFromFile(img_legend,1);
-        legend->setImageView_fast( img_mrpt_legend );
+        legend->setImageView( std::move(img_mrpt_legend ));
     }
     else{
         img_legend = "../config/aux/legend.png";
         img_mrpt_legend.loadFromFile(img_legend,1);
-        legend->setImageView_fast( img_mrpt_legend );
+        legend->setImageView( std::move(img_mrpt_legend ));
     }
 }
 
@@ -958,7 +957,7 @@ void sceneRepresentation::setHelp(){
     help = theScene->createViewport("help");
     img_help = "../config/aux/help.png";
     img_mrpt_help.loadFromFile(img_help,1);
-    help->setImageView_fast( img_mrpt_help );
+    help->setImageView( std::move(img_mrpt_help) );
     if(hasHelp)
         help->setViewportPosition(1600, 20, 300, 376);
     else
@@ -987,7 +986,7 @@ void sceneRepresentation::setStereoCalibration(Matrix3d K_, float b_){
 
 void sceneRepresentation::setKF(){
     // Initialize the camera object (set KF with the current pose)
-    opengl::CSetOfObjectsPtr kfbb = opengl::stock_objects::BumblebeeCamera();
+    opengl::CSetOfObjects::Ptr kfbb = opengl::stock_objects::BumblebeeCamera();
     {
         kfbb->setPose( pose );
         kfbb->setScale(sbb*3);
@@ -997,7 +996,7 @@ void sceneRepresentation::setKF(){
 
 void sceneRepresentation::setKF(Matrix4d Tfw){
     // Initialize the camera object
-    opengl::CSetOfObjectsPtr kfbb = opengl::stock_objects::BumblebeeCamera();
+    opengl::CSetOfObjects::Ptr kfbb = opengl::stock_objects::BumblebeeCamera();
     {
         //CPose3D pose( getPoseFormat(Tfw) );
         kfbb->setPose( pose );
@@ -1052,6 +1051,7 @@ bool sceneRepresentation::getYPR(float &yaw, float &pitch, float &roll){
     yaw   = y;
     pitch = p;
     roll  = r;
+    return true;
 }
 
 bool sceneRepresentation::getPose(Matrix4d &T){
@@ -1062,5 +1062,6 @@ bool sceneRepresentation::getPose(Matrix4d &T){
             T(i,j) = T_(i,j);
         }
     }
+    return true;
 }
 

@@ -2,10 +2,10 @@ project( stvo-pl )
 
 cmake_minimum_required(VERSION 2.7)
 find_package(OpenCV 3 REQUIRED)
-find_package(Boost REQUIRED COMPONENTS regex thread system filesystem)	
+find_package(Boost REQUIRED COMPONENTS regex thread system filesystem)
 
 if(COMMAND cmake_policy)
-  	cmake_policy(SET CMP0003 NEW)	
+  	cmake_policy(SET CMP0003 NEW)
 endif(COMMAND cmake_policy)
 link_directories(${OpenCV_LIBS_DIR})
 include_directories(${OpenCV2_INCLUDE_DIRS})
@@ -27,9 +27,8 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
 # MRPT library (optional, only with representation purposes)
 if(HAS_MRPT)
-find_package(MRPT REQUIRED opengl gui hwdrivers)
-set(MRPT_DONT_USE_DBG_LIBS 1) #use release libraries for linking even if "Debug" CMake build
-add_definitions(-DHAS_MRPT)
+    find_package(MRPT 1.9.9 REQUIRED opengl gui hwdrivers)
+    add_definitions(-DHAS_MRPT)
 endif()
 
 # YAML library
@@ -46,14 +45,14 @@ include_directories(
 )
 
 # Set link libraries
-list(APPEND LINK_LIBS 
+list(APPEND LINK_LIBS
   ${OpenCV_LIBS}
   ${Boost_LIBRARIES}
   ${YAML_CPP_LIBRARIES}
   linedesc
 )
 
-# Set source files 
+# Set source files
 if(HAS_MRPT)
 list(APPEND SOURCEFILES
   src/sceneRepresentation.cpp
@@ -92,9 +91,3 @@ endif()
 # Applications
 add_executable       ( imagesStVO app/imagesStVO.cpp )
 target_link_libraries( imagesStVO stvo )
-
-
-
-
-
-

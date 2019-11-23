@@ -27,18 +27,21 @@ using namespace std;
 
 #include <mrpt/opengl.h>
 #include <mrpt/gui.h>
-#include <mrpt/utils/CConfigFile.h>
-#include <mrpt/utils/CConfigFileBase.h>
+#include <mrpt/config/CConfigFile.h>
+#include <mrpt/config/CConfigFileBase.h>
 #include <mrpt/maps/CPointsMap.h>
 #include <mrpt/maps/CColouredPointsMap.h>
 #include <mrpt/maps/CSimplePointsMap.h>
+#include <mrpt/img/CImage.h>
+#include <list>
 using namespace mrpt;
 using namespace mrpt::gui;
 using namespace mrpt::poses;
-using namespace mrpt::utils;
+using namespace mrpt::config;
 using namespace mrpt::math;
 using namespace mrpt::opengl;
 using namespace mrpt::maps;
+using mrpt::img::CImage;
 
 #include <opencv/cv.h>
 using namespace cv;
@@ -65,8 +68,8 @@ public:
     void initializeScene(Matrix4d x_0, bool has_gt);
 //    void initializeScene(Matrix4d x_0, Matrix4d x_0gt);
 
-    bool updateScene();
-    bool updateScene(list<PointFeature *> matched_pt, list<LineFeature *> matched_ls);
+    bool updateScene(); 
+    bool updateScene(std::list<PointFeature *> matched_pt, list<LineFeature *> matched_ls);
     void plotPointsCovariances();
     void plotLinesCovariances();
 
@@ -97,21 +100,21 @@ private:
     CPose3D getPoseXYZ(VectorXd x);
 
     CDisplayWindow3D*           win;
-    COpenGLScenePtr             theScene;
-    COpenGLViewportPtr          image, legend, help;
-    opengl::CSetOfObjectsPtr    bbObj, bbObj1, srefObj, srefObj1, gtObj, srefObjGT, elliObjL, elliObjP;
-    opengl::CEllipsoidPtr       elliObj;
-    opengl::CSetOfLinesPtr      lineObj;
-    opengl::CPointCloudPtr      pointObj;
+    COpenGLScene::Ptr             theScene;
+    COpenGLViewport::Ptr          image, legend, help;
+    opengl::CSetOfObjects::Ptr    bbObj, bbObj1, srefObj, srefObj1, gtObj, srefObjGT, elliObjL, elliObjP;
+    opengl::CEllipsoid::Ptr       elliObj;
+    opengl::CSetOfLines::Ptr      lineObj;
+    opengl::CPointCloud::Ptr      pointObj;
 
     //CPointsMapPtr pointsObj;
 
-    opengl::CFrustumPtr         frustObj, frustObj1;
-    opengl::CAxisPtr            axesObj;
+    opengl::CFrustum::Ptr         frustObj, frustObj1;
+    opengl::CAxis::Ptr            axesObj;
 
 
     float           sbb, saxis, srad, sref, sline, sfreq, szoom, selli, selev, sazim, sfrust, slinef;
-    CVectorDouble   v_aux, v_aux_, v_aux1, v_aux1_, v_auxgt, gt_aux_, v_auxgt_;
+    CVectorFixedDouble<6>  v_aux, v_aux_, v_aux1, v_aux1_, v_auxgt, gt_aux_, v_auxgt_;
     CPose3D         pose, pose_0, pose_gt, pose_ini, ellPose, pose1,  change, frustumL_, frustumR_;
     Matrix4d        x_ini;
     mrptKeyModifier kmods;
