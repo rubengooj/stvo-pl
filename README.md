@@ -2,7 +2,7 @@
 
 This code contains an algorithm to compute stereo visual odometry by using both point and line segment features.
 
-**Authors:** [Ruben Gomez-Ojeda](http://mapir.isa.uma.es/mapirwebsite/index.php/people/164-ruben-gomez) 
+**Authors:** [Ruben Gomez-Ojeda](http://mapir.isa.uma.es/mapirwebsite/index.php/people/164-ruben-gomez)
 and [David Zuñiga-Noël](http://mapir.isa.uma.es/mapirwebsite/index.php/people/270)
 and [Javier Gonzalez-Jimenez](http://mapir.isa.uma.es/mapirwebsite/index.php/people/95-javier-gonzalez-jimenez)
 
@@ -26,7 +26,7 @@ Please do not hesitate to contact the authors if you have any further questions.
 ## 1. Prerequisites and dependencies
 
 ### OpenCV 3.x.x
-It can be easily found at http://opencv.org. 
+It can be easily found at http://opencv.org.
 
 ### Eigen3
 http://eigen.tuxfamily.org
@@ -43,26 +43,28 @@ Installation on Ubuntu 16.04:
 sudo apt install libyaml-cpp-dev
 ```
 
-### MRPT
-In case of using the provided representation class. 
-Download and install instructions can be found at: http://www.mrpt.org/
+### MRPT (>=v1.9.9)
+Optional: Enables the provided visualization class.
 
-#### Known Issues:
-If working with the most recent versions of the MRPT library you might find some issues due to hard refactoring, for which we recommend to use this version instead (the last one we tested):
+1) Only for Ubuntu 16.04 Xenial: upgrade gcc. Instructions [here](https://gist.github.com/jlblancoc/99521194aba975286c80f93e47966dc5).
+2) For any Ubuntu version older than 20.04 Focal:
 ```
-https://github.com/MRPT/mrpt/tree/0c3d605c3cbf5f2ffb8137089e43ebdae5a55de3
+sudo add-apt-repository ppa:joseluisblancoc/mrpt
+sudo apt-get update
+```
+3) Everyone: Install mrpt libraries:
+```
+sudo apt-get install libmrpt-dev
 ```
 
 ### Line Descriptor
 We have modified the [*line_descriptor*](https://github.com/opencv/opencv_contrib/tree/master/modules/line_descriptor) module from the [OpenCV/contrib](https://github.com/opencv/opencv_contrib) library (both BSD) which is included in the *3rdparty* folder.
 
 
-
-
 ## 2. Configuration and generation
 A CMakeLists.txt file is included to detect external dependencies and generate the project.
 
-The project builds "imagesStVO", a customizable application where the user must introduce the inputs to the SVO algorithm, and then process the provided output. 
+The project builds "imagesStVO", a customizable application where the user must introduce the inputs to the SVO algorithm, and then process the provided output.
 
 
 
@@ -87,50 +89,3 @@ A full command would be:
 ./imagesStVO kitti/00 -c ../config/config_kitti.yaml -o 100 -s 2 -n 1000
 
 where we are processing the sequence 00 from the KITTI dataset (in our dataset folders) with the custom config file, with an offset *-c* allowing to skip the first 100 images, a parameter *-s* to consider only one every 2 images, and a parameter *-n* to only consider 1000 input pairs.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
