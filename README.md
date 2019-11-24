@@ -44,16 +44,21 @@ sudo apt install libyaml-cpp-dev
 ```
 
 ### MRPT (>=v1.9.9)
-In case of using the provided representation class.
-Download and install instructions can be found at: https://www.mrpt.org/
-Either:
-- (recommended) Install [from this PPA](https://launchpad.net/~joseluisblancoc/+archive/ubuntu/mrpt).
-- or build [from sources](https://github.com/mrpt/mrpt/).
+Optional: Enables the provided visualization class.
+
+1) Only for Ubuntu 16.04 Xenial: upgrade gcc. Instructions [here](https://gist.github.com/jlblancoc/99521194aba975286c80f93e47966dc5).
+2) For any Ubuntu version older than 20.04 Focal:
+```
+sudo add-apt-repository ppa:joseluisblancoc/mrpt
+sudo apt-get update
+```
+3) Everyone: Install mrpt libraries:
+```
+sudo apt-get install libmrpt-dev
+```
 
 ### Line Descriptor
 We have modified the [*line_descriptor*](https://github.com/opencv/opencv_contrib/tree/master/modules/line_descriptor) module from the [OpenCV/contrib](https://github.com/opencv/opencv_contrib) library (both BSD) which is included in the *3rdparty* folder.
-
-
 
 
 ## 2. Configuration and generation
